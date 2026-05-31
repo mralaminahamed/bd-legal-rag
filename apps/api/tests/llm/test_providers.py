@@ -6,19 +6,15 @@ from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from app.llm.base import (
     CompletionRequest,
-    CompletionResult,
-    LLMProvider,
     ProviderRejected,
     ProviderUnavailable,
     StreamingProvider,
-    TokenUsage,
 )
 
-
 # ──────────────────────────────── Anthropic ───────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_anthropic_complete_returns_result() -> None:
@@ -30,9 +26,14 @@ async def test_anthropic_complete_returns_result() -> None:
     mock_msg.usage.output_tokens = 5
     mock_msg.model = "claude-sonnet-4-6"
 
-    with patch("anthropic.AsyncAnthropic") as MockClient:
-        MockClient.return_value.messages.create = AsyncMock(return_value=mock_msg)
-        provider = AnthropicProvider(api_key="sk-test", model="claude-sonnet-4-6", timeout=5.0, max_retries=0)
+    with patch("anthropic.AsyncAnthropic") as mock_client:
+        mock_client.return_value.messages.create = AsyncMock(return_value=mock_msg)
+        provider = AnthropicProvider(
+            api_key="sk-test",
+            model="claude-sonnet-4-6",
+            timeout=5.0,
+            max_retries=0,
+        )
         req = CompletionRequest(system="sys", user="q", max_tokens=128)
         result = await provider.complete(req)
 
@@ -45,14 +46,18 @@ async def test_anthropic_complete_returns_result() -> None:
 @pytest.mark.asyncio
 async def test_anthropic_timeout_raises_provider_unavailable() -> None:
     import anthropic
-
     from app.llm.anthropic import AnthropicProvider
 
-    with patch("anthropic.AsyncAnthropic") as MockClient:
-        MockClient.return_value.messages.create = AsyncMock(
+    with patch("anthropic.AsyncAnthropic") as mock_client:
+        mock_client.return_value.messages.create = AsyncMock(
             side_effect=anthropic.APITimeoutError(request=MagicMock())
         )
-        provider = AnthropicProvider(api_key="sk-test", model="claude-sonnet-4-6", timeout=5.0, max_retries=0)
+        provider = AnthropicProvider(
+            api_key="sk-test",
+            model="claude-sonnet-4-6",
+            timeout=5.0,
+            max_retries=0,
+        )
         req = CompletionRequest(system="sys", user="q", max_tokens=128)
         with pytest.raises(ProviderUnavailable):
             await provider.complete(req)
@@ -61,16 +66,20 @@ async def test_anthropic_timeout_raises_provider_unavailable() -> None:
 @pytest.mark.asyncio
 async def test_anthropic_auth_error_raises_provider_rejected() -> None:
     import anthropic
-
     from app.llm.anthropic import AnthropicProvider
 
-    with patch("anthropic.AsyncAnthropic") as MockClient:
-        MockClient.return_value.messages.create = AsyncMock(
+    with patch("anthropic.AsyncAnthropic") as mock_client:
+        mock_client.return_value.messages.create = AsyncMock(
             side_effect=anthropic.AuthenticationError(
                 message="invalid key", response=MagicMock(), body={}
             )
         )
-        provider = AnthropicProvider(api_key="bad-key", model="claude-sonnet-4-6", timeout=5.0, max_retries=0)
+        provider = AnthropicProvider(
+            api_key="bad-key",
+            model="claude-sonnet-4-6",
+            timeout=5.0,
+            max_retries=0,
+        )
         req = CompletionRequest(system="sys", user="q", max_tokens=128)
         with pytest.raises(ProviderRejected):
             await provider.complete(req)
@@ -80,7 +89,12 @@ async def test_anthropic_auth_error_raises_provider_rejected() -> None:
 async def test_anthropic_implements_streaming_provider() -> None:
     from app.llm.anthropic import AnthropicProvider
 
-    provider = AnthropicProvider(api_key="sk-test", model="claude-sonnet-4-6", timeout=5.0, max_retries=0)
+    provider = AnthropicProvider(
+        api_key="sk-test",
+        model="claude-sonnet-4-6",
+        timeout=5.0,
+        max_retries=0,
+    )
     assert isinstance(provider, StreamingProvider)
 
 
@@ -101,9 +115,14 @@ async def test_anthropic_stream_yields_deltas() -> None:
     mock_stream.__aenter__ = AsyncMock(return_value=fake_stream_ctx())
     mock_stream.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("anthropic.AsyncAnthropic") as MockClient:
-        MockClient.return_value.messages.stream.return_value = mock_stream
-        provider = AnthropicProvider(api_key="sk-test", model="claude-sonnet-4-6", timeout=5.0, max_retries=0)
+    with patch("anthropic.AsyncAnthropic") as mock_client:
+        mock_client.return_value.messages.stream.return_value = mock_stream
+        provider = AnthropicProvider(
+            api_key="sk-test",
+            model="claude-sonnet-4-6",
+            timeout=5.0,
+            max_retries=0,
+        )
         req = CompletionRequest(system="sys", user="q", max_tokens=128)
         tokens: list[str] = []
         async for token in await provider.stream(req):
@@ -113,6 +132,7 @@ async def test_anthropic_stream_yields_deltas() -> None:
 
 
 # ──────────────────────────────── OpenAI ──────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_openai_complete_returns_result() -> None:
@@ -125,9 +145,14 @@ async def test_openai_complete_returns_result() -> None:
     mock_resp.usage.completion_tokens = 3
     mock_resp.model = "gpt-4o-mini"
 
-    with patch("openai.AsyncOpenAI") as MockClient:
-        MockClient.return_value.chat.completions.create = AsyncMock(return_value=mock_resp)
-        provider = OpenAIProvider(api_key="sk-test", model="gpt-4o-mini", timeout=5.0, max_retries=0)
+    with patch("openai.AsyncOpenAI") as mock_client:
+        mock_client.return_value.chat.completions.create = AsyncMock(return_value=mock_resp)
+        provider = OpenAIProvider(
+            api_key="sk-test",
+            model="gpt-4o-mini",
+            timeout=5.0,
+            max_retries=0,
+        )
         req = CompletionRequest(system="sys", user="q", max_tokens=128)
         result = await provider.complete(req)
 
@@ -139,14 +164,18 @@ async def test_openai_complete_returns_result() -> None:
 @pytest.mark.asyncio
 async def test_openai_timeout_raises_provider_unavailable() -> None:
     import openai as _openai
-
     from app.llm.openai import OpenAIProvider
 
-    with patch("openai.AsyncOpenAI") as MockClient:
-        MockClient.return_value.chat.completions.create = AsyncMock(
+    with patch("openai.AsyncOpenAI") as mock_client:
+        mock_client.return_value.chat.completions.create = AsyncMock(
             side_effect=_openai.APITimeoutError(request=MagicMock())
         )
-        provider = OpenAIProvider(api_key="sk-test", model="gpt-4o-mini", timeout=5.0, max_retries=0)
+        provider = OpenAIProvider(
+            api_key="sk-test",
+            model="gpt-4o-mini",
+            timeout=5.0,
+            max_retries=0,
+        )
         with pytest.raises(ProviderUnavailable):
             await provider.complete(CompletionRequest(system="s", user="u", max_tokens=128))
 
@@ -154,11 +183,10 @@ async def test_openai_timeout_raises_provider_unavailable() -> None:
 @pytest.mark.asyncio
 async def test_openai_auth_error_raises_provider_rejected() -> None:
     import openai as _openai
-
     from app.llm.openai import OpenAIProvider
 
-    with patch("openai.AsyncOpenAI") as MockClient:
-        MockClient.return_value.chat.completions.create = AsyncMock(
+    with patch("openai.AsyncOpenAI") as mock_client:
+        mock_client.return_value.chat.completions.create = AsyncMock(
             side_effect=_openai.AuthenticationError(
                 message="bad key", response=MagicMock(), body={}
             )
@@ -169,6 +197,7 @@ async def test_openai_auth_error_raises_provider_rejected() -> None:
 
 
 # ──────────────────────────────── Ollama ──────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_ollama_complete_returns_result() -> None:
@@ -183,11 +212,16 @@ async def test_ollama_complete_returns_result() -> None:
     }
     mock_resp.raise_for_status = MagicMock()
 
-    with patch("httpx.AsyncClient") as MockHTTP:
-        MockHTTP.return_value.__aenter__ = AsyncMock(return_value=MockHTTP.return_value)
-        MockHTTP.return_value.__aexit__ = AsyncMock(return_value=False)
-        MockHTTP.return_value.post = AsyncMock(return_value=mock_resp)
-        provider = OllamaProvider(base_url="http://localhost:11434", model="llama3.2", timeout=5.0, max_retries=0)
+    with patch("httpx.AsyncClient") as mock_http:
+        mock_http.return_value.__aenter__ = AsyncMock(return_value=mock_http.return_value)
+        mock_http.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_http.return_value.post = AsyncMock(return_value=mock_resp)
+        provider = OllamaProvider(
+            base_url="http://localhost:11434",
+            model="llama3.2",
+            timeout=5.0,
+            max_retries=0,
+        )
         req = CompletionRequest(system="sys", user="q", max_tokens=128)
         result = await provider.complete(req)
 
@@ -198,13 +232,17 @@ async def test_ollama_complete_returns_result() -> None:
 @pytest.mark.asyncio
 async def test_ollama_connection_error_raises_provider_unavailable() -> None:
     import httpx
-
     from app.llm.ollama import OllamaProvider
 
-    with patch("httpx.AsyncClient") as MockHTTP:
-        MockHTTP.return_value.__aenter__ = AsyncMock(return_value=MockHTTP.return_value)
-        MockHTTP.return_value.__aexit__ = AsyncMock(return_value=False)
-        MockHTTP.return_value.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
-        provider = OllamaProvider(base_url="http://localhost:11434", model="llama3.2", timeout=5.0, max_retries=0)
+    with patch("httpx.AsyncClient") as mock_http:
+        mock_http.return_value.__aenter__ = AsyncMock(return_value=mock_http.return_value)
+        mock_http.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_http.return_value.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
+        provider = OllamaProvider(
+            base_url="http://localhost:11434",
+            model="llama3.2",
+            timeout=5.0,
+            max_retries=0,
+        )
         with pytest.raises(ProviderUnavailable):
             await provider.complete(CompletionRequest(system="s", user="u", max_tokens=128))
