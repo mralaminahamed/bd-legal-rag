@@ -4,7 +4,7 @@
 slug: companies-act-1994
 short_name: Companies Act 1994
 full_name_en: The Companies Act, 1994
-full_name_bn: কোম্পানি আইন, ১৯৯৪
+full_name_bn: কোম্পানী আইন, ১৯৯৪
 act_number: XVIII
 act_year: 1994
 ministry: Ministry of Commerce
@@ -12,6 +12,6 @@ status: in_force
 
 sources:
   - language: bn
-    source_url: https://bdlaws.minlaw.gov.bd/act-745.html
+    source_url: http://bdlaws.minlaw.gov.bd/act-788.html
   - language: en
-    source_url: https://bdlaws.minlaw.gov.bd/act-745.html
+    source_url: http://bdlaws.minlaw.gov.bd/act-788.html?lang=en

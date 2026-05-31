@@ -4,6 +4,11 @@ Declarative Act registrations for the Bangladesh Legal RAG (FR-CM-4). Each `*.ya
 describes one Act and the bdlaws sources to ingest for it. The files are the source of truth;
 the database is reconciled from them via the bootstrap command.
 
+**bdlaws portal index:** http://bdlaws.minlaw.gov.bd/laws-of-bangladesh-alphabetical-index.html
+
+The full portal index (1556 Acts) is cached at `config/bdlaws-acts-index.json` for reference
+when adding new Acts to the corpus.
+
 > Authoritative spec: `docs/01-SRS.md` (FR-CM-*, FR-IN-*) and `docs/02-Architecture.md` §2.2.
 > Author: **Al Amin Ahamed**.
 

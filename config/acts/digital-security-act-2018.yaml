@@ -12,6 +12,6 @@ status: in_force
 
 sources:
   - language: bn
-    source_url: https://bdlaws.minlaw.gov.bd/act-details-1261.html
+    source_url: http://bdlaws.minlaw.gov.bd/act-1261.html
   - language: en
-    source_url: https://bdlaws.minlaw.gov.bd/act-details-1261.html
+    source_url: http://bdlaws.minlaw.gov.bd/act-1261.html?lang=en

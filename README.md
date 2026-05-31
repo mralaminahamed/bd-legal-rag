@@ -188,3 +188,22 @@ If you have built a general-purpose RAG before, four things change here:
 4. **The data model is temporal** (ADR-006). `provision_revisions` track effective windows, and
    retrieval always filters by `as_of_date`. A question about the 2010 form of a provision must
    not be served the 2024 amendment.
+
+## Corpus source
+
+All Acts are sourced from the Bangladesh national law portal:
+
+- **Index page:** http://bdlaws.minlaw.gov.bd/laws-of-bangladesh-alphabetical-index.html
+- **Act page pattern:** `http://bdlaws.minlaw.gov.bd/act-{id}.html` (Bengali default)
+- **English variant:** `http://bdlaws.minlaw.gov.bd/act-{id}.html?lang=en`
+
+The full index of 1556 Acts is cached at `config/bdlaws-acts-index.json`. The five v1.0 Acts and
+their confirmed page IDs:
+
+| Act | bdlaws ID | URL |
+|---|---|---|
+| The Companies Act, 1994 | 788 | http://bdlaws.minlaw.gov.bd/act-788.html |
+| The Income Tax Act, 2023 | 1429 | http://bdlaws.minlaw.gov.bd/act-1429.html |
+| The VAT and Supplementary Duty Act, 2012 | 1106 | http://bdlaws.minlaw.gov.bd/act-1106.html |
+| The Bangladesh Labour Act, 2006 | 952 | http://bdlaws.minlaw.gov.bd/act-952.html |
+| The Digital Security Act, 2018 | 1261 | http://bdlaws.minlaw.gov.bd/act-1261.html |
