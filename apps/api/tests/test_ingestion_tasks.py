@@ -250,3 +250,225 @@ async def test_missing_act_returns_failed_summary(db_session_factory) -> None:  
 
 
 # ---------------------------------------------------------------------------
+# Phase 3 — chunk + embed wiring (FR-PR-3, FR-PR-4, FR-PR-5)
+# ---------------------------------------------------------------------------
+
+_TWO_SECTION_HTML = """
+<html><body>
+<div class="lawCon">
+  <div class="section">
+    <div class="sec_head">101. Annual leave</div>
+    <div class="sec_content">Every worker shall be entitled to annual leave with pay.</div>
+  </div>
+  <div class="section">
+    <div class="sec_head">103. Weekly holiday</div>
+    <div class="sec_content">Every worker shall be given at least one day off per week.</div>
+  </div>
+</div>
+</body></html>
+"""
+
+_TWO_SECTION_HTML_UPDATED_101 = """
+<html><body>
+<div class="lawCon">
+  <div class="section">
+    <div class="sec_head">101. Annual leave</div>
+    <div class="sec_content">Every worker shall be entitled to annual leave
+with full pay and benefits.</div>
+  </div>
+  <div class="section">
+    <div class="sec_head">103. Weekly holiday</div>
+    <div class="sec_content">Every worker shall be given at least one day off per week.</div>
+  </div>
+</div>
+</body></html>
+"""
+
+
+def _make_mock_cohere_client() -> tuple[object, object]:
+    """Return (mock_cls, mock_client) that returns correctly-sized vectors per call."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    call_count = 0
+
+    async def fake_embed(**kwargs: object) -> MagicMock:
+        nonlocal call_count
+        call_count += 1
+        n = len(kwargs["texts"])  # type: ignore[arg-type]
+        r = MagicMock()
+        r.embeddings.float_ = [[float(call_count) / 10.0] * 1024 for _ in range(n)]
+        return r
+
+    mock_client = AsyncMock()
+    mock_client.embed = AsyncMock(side_effect=fake_embed)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_cls = MagicMock(return_value=mock_client)
+    return mock_cls, mock_client
+
+
+@pytest.mark.asyncio
+async def test_ingestion_creates_chunks_with_embeddings(  # type: ignore[no-untyped-def]
+    act_row, db_session_factory, monkeypatch
+) -> None:
+    """After ingestion, chunks has non-null 1024-dim embeddings (Phase 3 acceptance)."""
+    from unittest.mock import patch
+
+    from app.config import get_settings
+    from app.db.models import Chunk
+    from sqlalchemy import select
+
+    monkeypatch.setenv("BDRAG_COHERE_API_KEY", "test-key-phase3")
+    get_settings.cache_clear()
+
+    mock_cls, _ = _make_mock_cohere_client()
+
+    try:
+        with patch("app.processing.embedder.cohere.AsyncClient", mock_cls):
+            summary = await ingest_act_language(
+                act_row,
+                "en",
+                sessionmaker=db_session_factory,
+                crawl_result=_make_crawl_result(_SECTION_HTML),
+            )
+    finally:
+        get_settings.cache_clear()
+
+    assert summary.status == "succeeded"
+    assert summary.chunks_created > 0
+
+    async with db_session_factory() as session:
+        chunks = (await session.execute(select(Chunk))).scalars().all()
+    assert len(chunks) > 0
+    assert all(chunk.embedding is not None for chunk in chunks)
+    assert all(len(chunk.embedding) == 1024 for chunk in chunks)
+    assert all(chunk.content_tsv is not None for chunk in chunks)
+    assert all(chunk.hierarchy_path for chunk in chunks)
+
+
+@pytest.mark.asyncio
+async def test_hierarchy_path_contains_section_label(  # type: ignore[no-untyped-def]
+    act_row, db_session_factory, monkeypatch
+) -> None:
+    """Chunks carry hierarchy_path with statutory breadcrumb (architecture §2.3)."""
+    from unittest.mock import patch
+
+    from app.config import get_settings
+    from app.db.models import Chunk
+    from sqlalchemy import select
+
+    monkeypatch.setenv("BDRAG_COHERE_API_KEY", "test-key-phase3")
+    get_settings.cache_clear()
+
+    mock_cls, _ = _make_mock_cohere_client()
+
+    try:
+        with patch("app.processing.embedder.cohere.AsyncClient", mock_cls):
+            await ingest_act_language(
+                act_row,
+                "en",
+                sessionmaker=db_session_factory,
+                crawl_result=_make_crawl_result(_SECTION_HTML),
+            )
+    finally:
+        get_settings.cache_clear()
+
+    async with db_session_factory() as session:
+        chunks = (await session.execute(select(Chunk))).scalars().all()
+
+    assert len(chunks) > 0
+    for chunk in chunks:
+        assert "Section" in chunk.hierarchy_path or "section" in chunk.hierarchy_path.lower()
+
+
+@pytest.mark.asyncio
+async def test_reindex_changed_revision_leaves_sibling_chunks_untouched(
+    act_row, db_session_factory, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    """Re-indexing one changed revision does not delete sibling-revision chunks (FR-PR-3)."""
+    from unittest.mock import patch
+
+    from app.config import get_settings
+    from app.db.models import Chunk
+    from sqlalchemy import select
+
+    monkeypatch.setenv("BDRAG_COHERE_API_KEY", "test-key-phase3")
+    get_settings.cache_clear()
+
+    mock_cls, _ = _make_mock_cohere_client()
+
+    try:
+        with patch("app.processing.embedder.cohere.AsyncClient", mock_cls):
+            await ingest_act_language(
+                act_row,
+                "en",
+                sessionmaker=db_session_factory,
+                crawl_result=_make_crawl_result(_TWO_SECTION_HTML),
+            )
+
+        async with db_session_factory() as session:
+            chunks_after_first = (await session.execute(select(Chunk))).scalars().all()
+        chunk_ids_after_first = {c.id for c in chunks_after_first}
+        assert len(chunk_ids_after_first) >= 2, "expected ≥2 chunks (one per section)"
+
+        chunks_103 = [c for c in chunks_after_first if "103" in c.hierarchy_path]
+        assert chunks_103, "expected a chunk for section 103"
+        ids_103 = {c.id for c in chunks_103}
+
+        mock_cls2, _ = _make_mock_cohere_client()
+        with patch("app.processing.embedder.cohere.AsyncClient", mock_cls2):
+            await ingest_act_language(
+                act_row,
+                "en",
+                sessionmaker=db_session_factory,
+                crawl_result=_make_crawl_result(_TWO_SECTION_HTML_UPDATED_101),
+            )
+    finally:
+        get_settings.cache_clear()
+
+    async with db_session_factory() as session:
+        chunks_after_second = (await session.execute(select(Chunk))).scalars().all()
+
+    ids_after_second = {c.id for c in chunks_after_second}
+    assert ids_103.issubset(ids_after_second), (
+        "section 103 chunks were wrongly deleted during re-index of section 101"
+    )
+
+
+@pytest.mark.asyncio
+async def test_hash_skip_does_not_recreate_chunks(act_row, db_session_factory, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Re-ingesting identical HTML preserves existing chunk IDs (hash-skip, FR-IN-4)."""
+    from unittest.mock import patch
+
+    from app.config import get_settings
+    from app.db.models import Chunk
+    from sqlalchemy import select
+
+    monkeypatch.setenv("BDRAG_COHERE_API_KEY", "test-key-phase3")
+    get_settings.cache_clear()
+
+    crawl = _make_crawl_result(_SECTION_HTML)
+    mock_cls, _ = _make_mock_cohere_client()
+
+    try:
+        with patch("app.processing.embedder.cohere.AsyncClient", mock_cls):
+            await ingest_act_language(
+                act_row, "en", sessionmaker=db_session_factory, crawl_result=crawl
+            )
+
+        async with db_session_factory() as session:
+            ids_first = {c.id for c in (await session.execute(select(Chunk))).scalars().all()}
+
+        mock_cls2, _ = _make_mock_cohere_client()
+        with patch("app.processing.embedder.cohere.AsyncClient", mock_cls2):
+            summary2 = await ingest_act_language(
+                act_row, "en", sessionmaker=db_session_factory, crawl_result=crawl
+            )
+    finally:
+        get_settings.cache_clear()
+
+    assert summary2.chunks_created == 0
+
+    async with db_session_factory() as session:
+        ids_second = {c.id for c in (await session.execute(select(Chunk))).scalars().all()}
+    assert ids_first == ids_second, "chunk IDs changed on identical re-ingest"
