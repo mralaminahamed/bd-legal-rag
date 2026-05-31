@@ -1,0 +1,101 @@
+[project]
+name = "bd-legal-rag"
+version = "0.1.0"
+description = "Retrieval-Augmented Generation service for Bangladeshi statute law."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Al Amin Ahamed", email = "mrabir.ahamed@gmail.com" }]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pgvector>=0.3.6",
+    "redis>=5.2",
+    "celery[redis]>=5.4",
+    "httpx>=0.28",
+    "anthropic>=0.40",
+    "openai>=1.58",
+    "cohere>=5.0",
+    "tenacity>=9.0",
+    "selectolax>=0.3",
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "vcrpy>=6.0",
+    "pytest-httpx>=0.35",
+    "types-PyYAML>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "eval"]
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "eval", "tests"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, pep8-naming, pyupgrade, bugbear, comprehensions, async, docstrings.
+select = ["E", "F", "I", "N", "UP", "B", "C4", "ASYNC", "D"]
+# D203/D213 conflict with D211/D212; pick the latter to match Google style.
+ignore = ["D203", "D213"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests and empty package markers need no public docstrings.
+"tests/*" = ["D"]
+"**/__init__.py" = ["D104"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom calls these in argument defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Query", "fastapi.Path"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+# Tests live with the service (apps/api/tests) but are not type-checked under
+# --strict; they exercise behaviour, not type contracts.
+exclude = ["tests/"]
+
+[[tool.mypy.overrides]]
+# Celery and pgvector ship no type stubs; scope the allowance narrowly.
+module = ["celery.*", "pgvector.*", "cohere.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Celery's task decorator is untyped (no stubs); the tasks themselves are typed.
+module = ["app.ingestion.tasks"]
+disallow_untyped_decorators = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    # Benign GC of a prior test's engine pool bound to a closed event loop.
+    "ignore:coroutine 'Connection._cancel' was never awaited:RuntimeWarning",
+]
