@@ -1,0 +1,132 @@
+# Bangladesh Legal RAG — local/dev stack.
+# Author: Al Amin Ahamed.
+#
+# `docker compose up` boots PostgreSQL (pgvector), Redis, the FastAPI app, the
+# Celery worker, and Celery beat with no host dependencies beyond Docker
+# (NFR-PT-1). The app, worker, and beat share one image and one configuration
+# surface; behaviour differs only by command.
+
+x-app-env: &app-env
+  BDRAG_ENVIRONMENT: development
+  BDRAG_DATABASE_DSN: postgresql+asyncpg://bdrag:bdrag@postgres:5432/bdrag
+  BDRAG_REDIS_DSN: redis://redis:6379/0
+  BDRAG_LOG_LEVEL: INFO
+  # Dev-only admin token so /api/v1/admin/* is usable out of the box; override
+  # via the BDRAG_ADMIN_BEARER_TOKEN env var. Never use this value in production.
+  BDRAG_ADMIN_BEARER_TOKEN: ${BDRAG_ADMIN_BEARER_TOKEN:-dev-admin-token}
+  # Generation provider selection. Defaults run fully local against a host
+  # Ollama (reached via host.docker.internal); override in the root .env.
+  BDRAG_DEFAULT_PROVIDER: ${BDRAG_DEFAULT_PROVIDER:-ollama}
+  BDRAG_OLLAMA_BASE_URL: ${BDRAG_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+  BDRAG_OLLAMA_MODEL: ${BDRAG_OLLAMA_MODEL:-llama3.2}
+  BDRAG_ANTHROPIC_MODEL: ${BDRAG_ANTHROPIC_MODEL:-claude-sonnet-4-6}
+  BDRAG_OPENAI_MODEL: ${BDRAG_OPENAI_MODEL:-gpt-4o-mini}
+  # Cohere is the required embedding and reranking provider (ADR-002, ADR-003).
+  BDRAG_COHERE_API_KEY: ${BDRAG_COHERE_API_KEY:-}
+  BDRAG_ANTHROPIC_API_KEY: ${BDRAG_ANTHROPIC_API_KEY:-}
+  BDRAG_OPENAI_API_KEY: ${BDRAG_OPENAI_API_KEY:-}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: bdrag
+      POSTGRES_PASSWORD: bdrag
+      POSTGRES_DB: bdrag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bdrag -d bdrag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      <<: *app-env
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL",
+         "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      <<: *app-env
+    command:
+      ["celery", "-A", "app.ingestion.tasks:celery_app", "worker", "-l", "info"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      <<: *app-env
+    command:
+      ["celery", "-A", "app.ingestion.tasks:celery_app", "beat", "-l", "info",
+       "--schedule", "/tmp/celerybeat-schedule"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Bilingual search web interface (apps/web) — served by nginx, no build step.
+  web:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./apps/web:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+
+  # Admin console (apps/admin) — Vite/React build served by nginx.
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "8081:80"
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,128 @@
+# Bangladesh Legal RAG — production stack (NFR-PT-1).
+# Author: Al Amin Ahamed.
+#
+#   DOMAIN=legal.example.com BDRAG_COHERE_API_KEY=... BDRAG_ANTHROPIC_API_KEY=... \
+#   BDRAG_ADMIN_BEARER_TOKEN=... POSTGRES_PASSWORD=... \
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Caddy terminates TLS automatically for $DOMAIN and reverse-proxies the API.
+# All secrets come from the environment; none are baked into the image.
+
+x-app-env: &app-env
+  BDRAG_ENVIRONMENT: production
+  BDRAG_DATABASE_DSN: postgresql+asyncpg://bdrag:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/bdrag
+  BDRAG_REDIS_DSN: redis://redis:6379/0
+  BDRAG_DEFAULT_PROVIDER: ${BDRAG_DEFAULT_PROVIDER:-anthropic}
+  BDRAG_COHERE_API_KEY: ${BDRAG_COHERE_API_KEY:-}
+  BDRAG_ANTHROPIC_API_KEY: ${BDRAG_ANTHROPIC_API_KEY:-}
+  BDRAG_OPENAI_API_KEY: ${BDRAG_OPENAI_API_KEY:-}
+  BDRAG_ADMIN_BEARER_TOKEN: ${BDRAG_ADMIN_BEARER_TOKEN:?set BDRAG_ADMIN_BEARER_TOKEN}
+  BDRAG_CORS_ORIGINS: ${BDRAG_CORS_ORIGINS:-["*"]}
+  BDRAG_LOG_LEVEL: ${BDRAG_LOG_LEVEL:-INFO}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: bdrag
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: bdrag
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bdrag -d bdrag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      <<: *app-env
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      <<: *app-env
+    command: ["celery", "-A", "app.ingestion.tasks:celery_app", "worker", "-l", "info"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  beat:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      <<: *app-env
+    command:
+      ["celery", "-A", "app.ingestion.tasks:celery_app", "beat", "-l", "info",
+       "--schedule", "/tmp/celerybeat-schedule"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./apps/web:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: https://${DOMAIN:?set DOMAIN}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - app
+      - web
+      - admin
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  caddydata:
+  caddyconfig:
