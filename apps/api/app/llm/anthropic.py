@@ -157,6 +157,8 @@ class AnthropicProvider:
                         yield event.delta.text
         except anthropic.APITimeoutError as exc:
             raise ProviderUnavailable(f"anthropic stream timeout: {exc}") from exc
+        except anthropic.RateLimitError as exc:
+            raise ProviderUnavailable(f"anthropic stream rate_limit: {exc}") from exc
         except anthropic.APIConnectionError as exc:
             raise ProviderUnavailable(f"anthropic stream connection: {exc}") from exc
         except (
@@ -164,3 +166,5 @@ class AnthropicProvider:
             anthropic.PermissionDeniedError,
         ) as exc:
             raise ProviderRejected(f"anthropic stream rejected: {exc}") from exc
+        except anthropic.BadRequestError as exc:
+            raise ProviderRejected(f"anthropic stream bad_request: {exc}") from exc
