@@ -1,0 +1,17 @@
+# Declarative Act registration (FR-PM-5).
+# Author: Al Amin Ahamed.
+
+slug: income-tax-act-2023
+short_name: Income Tax Act 2023
+full_name_en: The Income Tax Act, 2023
+full_name_bn: আয়কর আইন, ২০২৩
+act_number: XII
+act_year: 2023
+ministry: Ministry of Finance
+status: in_force
+
+sources:
+  - language: bn
+    source_url: https://bdlaws.minlaw.gov.bd/act-1368.html
+  - language: en
+    source_url: https://bdlaws.minlaw.gov.bd/act-1368.html

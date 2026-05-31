@@ -1,0 +1,17 @@
+# Declarative Act registration (FR-PM-5).
+# Author: Al Amin Ahamed.
+
+slug: digital-security-act-2018
+short_name: Digital Security Act 2018
+full_name_en: The Digital Security Act, 2018
+full_name_bn: ডিজিটাল নিরাপত্তা আইন, ২০১৮
+act_number: XLVI
+act_year: 2018
+ministry: Ministry of Information and Communication Technology
+status: in_force
+
+sources:
+  - language: bn
+    source_url: https://bdlaws.minlaw.gov.bd/act-details-1261.html
+  - language: en
+    source_url: https://bdlaws.minlaw.gov.bd/act-details-1261.html

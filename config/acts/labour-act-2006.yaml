@@ -1,0 +1,17 @@
+# Declarative Act registration (FR-PM-5).
+# Author: Al Amin Ahamed.
+
+slug: labour-act-2006
+short_name: Labour Act 2006
+full_name_en: The Bangladesh Labour Act, 2006
+full_name_bn: বাংলাদেশ শ্রম আইন, ২০০৬
+act_number: XLII
+act_year: 2006
+ministry: Ministry of Labour and Employment
+status: in_force
+
+sources:
+  - language: bn
+    source_url: https://bdlaws.minlaw.gov.bd/act-952.html
+  - language: en
+    source_url: https://bdlaws.minlaw.gov.bd/act-952.html

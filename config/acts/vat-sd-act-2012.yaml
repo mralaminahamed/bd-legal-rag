@@ -1,0 +1,17 @@
+# Declarative Act registration (FR-PM-5).
+# Author: Al Amin Ahamed.
+
+slug: vat-sd-act-2012
+short_name: VAT and SD Act 2012
+full_name_en: The Value Added Tax and Supplementary Duty Act, 2012
+full_name_bn: মূল্য সংযোজন কর ও সম্পূরক শুল্ক আইন, ২০১২
+act_number: I
+act_year: 2012
+ministry: Ministry of Finance
+status: in_force
+
+sources:
+  - language: bn
+    source_url: https://bdlaws.minlaw.gov.bd/act-1101.html
+  - language: en
+    source_url: https://bdlaws.minlaw.gov.bd/act-1101.html
