@@ -134,9 +134,7 @@ async def test_vector_search_returns_hits_from_rows() -> None:
     session = AsyncMock()
     session.execute = AsyncMock(return_value=mock_result)
 
-    hits = await vector_search(
-        session, [0.1] * 1024, [], "en", date(2024, 1, 1), Settings()
-    )
+    hits = await vector_search(session, [0.1] * 1024, [], "en", date(2024, 1, 1), Settings())
 
     assert len(hits) == 1
     assert isinstance(hits[0], _Hit)
@@ -154,9 +152,7 @@ async def test_vector_search_empty_result() -> None:
     session = AsyncMock()
     session.execute = AsyncMock(return_value=mock_result)
 
-    hits = await vector_search(
-        session, [0.0] * 1024, [], "bn", date(2024, 1, 1), Settings()
-    )
+    hits = await vector_search(session, [0.0] * 1024, [], "bn", date(2024, 1, 1), Settings())
     assert hits == []
 
 
@@ -183,9 +179,7 @@ async def test_lexical_search_returns_hits_from_rows() -> None:
     session = AsyncMock()
     session.execute = AsyncMock(return_value=mock_result)
 
-    hits = await lexical_search(
-        session, "weekly holiday", [], "en", date(2024, 1, 1), Settings()
-    )
+    hits = await lexical_search(session, "weekly holiday", [], "en", date(2024, 1, 1), Settings())
 
     assert len(hits) == 1
     assert isinstance(hits[0], _Hit)

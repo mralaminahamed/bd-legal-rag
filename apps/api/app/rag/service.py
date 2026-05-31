@@ -81,9 +81,7 @@ def _tier(
     if top < settings.confidence_t_medium:
         return "LOW"
     if top >= settings.confidence_t_high:
-        above_keep = sum(
-            1 for c in chunks if (c.rerank_score or 0.0) >= settings.confidence_t_keep
-        )
+        above_keep = sum(1 for c in chunks if (c.rerank_score or 0.0) >= settings.confidence_t_keep)
         top3_acts = len({c.act_id for c in chunks[:3]})
         if above_keep >= 2 and top3_acts == 1:
             return "HIGH"
