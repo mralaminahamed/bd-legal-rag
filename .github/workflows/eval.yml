@@ -1,0 +1,71 @@
+name: Eval
+
+# Offline eval gate. Runs only when prompts, the RAG path, safety components,
+# or the golden dataset change. Fails the build when section citation accuracy
+# < 0.85, language routing accuracy < 0.95, or decline accuracy < 0.95.
+# No live LLM/embedding calls.
+# Author: Al Amin Ahamed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/api/app/prompts/**"
+      - "apps/api/app/rag/**"
+      - "apps/api/eval/dataset/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/api/app/prompts/**"
+      - "apps/api/app/rag/**"
+      - "apps/api/eval/dataset/**"
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.9.26"
+
+defaults:
+  run:
+    working-directory: apps/api
+
+jobs:
+  eval:
+    name: eval gate (citation >= 0.85, lang_routing >= 0.95, decline >= 0.95)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: bdrag
+          POSTGRES_PASSWORD: bdrag
+          POSTGRES_DB: bdrag
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U bdrag -d bdrag"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      BDRAG_DATABASE_DSN: postgresql+asyncpg://bdrag:bdrag@localhost:5432/bdrag
+      BDRAG_REDIS_DSN: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Sync dependencies
+        run: uv sync --frozen
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+      - name: Run eval harness (gates thresholds)
+        run: uv run python -m eval.harness

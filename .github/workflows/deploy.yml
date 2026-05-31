@@ -1,0 +1,60 @@
+name: Deploy
+
+# Build images, run migrations, and restart the production stack (NFR-PT-1).
+# Host-specific steps are guarded with `if: ${{ !env.ACT }}` so local `act` runs
+# validate the build path without attempting a real deploy.
+# Author: Al Amin Ahamed.
+
+# Manual-only: a production deploy needs a configured host + secrets, so it does
+# not auto-run on every push. Trigger from the Actions tab (or `gh workflow run
+# Deploy`) once BDRAG_ADMIN_BEARER_TOKEN and the deploy target are configured.
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: build, migrate, restart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build images
+        run: docker compose -f docker-compose.prod.yml build
+
+      # The steps below need production secrets and the target host; skipped under act.
+      - name: Run database migrations
+        if: ${{ !env.ACT }}
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DOMAIN: ${{ secrets.DOMAIN }}
+          BDRAG_ADMIN_BEARER_TOKEN: ${{ secrets.BDRAG_ADMIN_BEARER_TOKEN }}
+          BDRAG_COHERE_API_KEY: ${{ secrets.BDRAG_COHERE_API_KEY }}
+        run: docker compose -f docker-compose.prod.yml run --rm app alembic upgrade head
+
+      - name: Restart services
+        if: ${{ !env.ACT }}
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DOMAIN: ${{ secrets.DOMAIN }}
+          BDRAG_ADMIN_BEARER_TOKEN: ${{ secrets.BDRAG_ADMIN_BEARER_TOKEN }}
+          BDRAG_COHERE_API_KEY: ${{ secrets.BDRAG_COHERE_API_KEY }}
+          BDRAG_ANTHROPIC_API_KEY: ${{ secrets.BDRAG_ANTHROPIC_API_KEY }}
+          BDRAG_OPENAI_API_KEY: ${{ secrets.BDRAG_OPENAI_API_KEY }}
+        run: docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+      - name: Health check
+        if: ${{ !env.ACT }}
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then echo "healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "service did not become healthy" >&2
+          exit 1
