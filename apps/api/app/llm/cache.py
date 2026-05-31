@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Any
+from typing import Any  # redis client types vary by version; no universal stub
 
 logger = logging.getLogger(__name__)
 

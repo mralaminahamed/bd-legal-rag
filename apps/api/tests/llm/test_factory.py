@@ -6,8 +6,8 @@ import pytest
 from app.config import Settings
 
 
-def _settings(**overrides: object) -> Settings:
-    base = {
+def _settings(**overrides: str) -> Settings:
+    base: dict[str, str] = {
         "anthropic_api_key": "sk-ant-test",
         "openai_api_key": "sk-oai-test",
     }

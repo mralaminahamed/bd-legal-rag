@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any  # redis client types vary by version; no universal stub
 
 from app.config import ProviderName, Settings
 
