@@ -1,0 +1,12 @@
+{
+  "name": "@bd-legal-rag/monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check"
+  },
+  "devDependencies": { "turbo": "^2.9.16" },
+  "packageManager": "pnpm@11.5.0"
+}

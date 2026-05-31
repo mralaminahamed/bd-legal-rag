@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+.Python
+.venv/
+venv/
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Project docs / agent context (kept out of version control)
+CLAUDE.md
+.claude/
+.remember/
+
+# Eval run artifacts (generated)
+apps/api/eval/runs/
+
+# JS / monorepo
+node_modules/
+apps/**/dist/
+.turbo/
+*.tsbuildinfo
+
+# Playwright
+apps/**/test-results/
+apps/**/playwright-report/
+apps/**/.playwright/
+
+
+CLAUDE.md
+*/**/CLAUDE.md
+/docs/
