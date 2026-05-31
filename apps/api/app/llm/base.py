@@ -177,4 +177,7 @@ async def call_with_retries[T](
                 )
                 if delay > 0:
                     await asyncio.sleep(delay)
+    # last_exc is always non-None here: the loop only exits via successful return,
+    # ProviderRejected (re-raised), or ProviderUnavailable (assigned to last_exc).
+    # mypy cannot infer this invariant across the loop structure.
     raise last_exc  # type: ignore[misc]
