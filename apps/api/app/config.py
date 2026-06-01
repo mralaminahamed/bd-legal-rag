@@ -21,9 +21,12 @@ from typing import Literal
 from pydantic import Field, RedisDsn, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Repo root .env — four parents up from apps/api/app/config.py.
-# Silently skipped when absent (Docker injects vars via compose environment).
-_ENV_FILE = str(Path(__file__).parents[3] / ".env")
+# Repo root .env — four parents up from apps/api/app/config.py in local dev.
+# Falls back to ".env" in Docker (shallower path; env vars injected by compose).
+try:
+    _ENV_FILE: str = str(Path(__file__).parents[3] / ".env")
+except IndexError:
+    _ENV_FILE = ".env"
 
 ProviderName = Literal["anthropic", "openai", "ollama"]
 """Generation providers the factory can resolve (architecture §2.5)."""
