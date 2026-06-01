@@ -74,14 +74,25 @@ def classify(
     Args:
         query: The raw user query string.
         chunks: Retrieved chunks from the retrieval pipeline.
-        settings: Application settings (recall floor, advice confidence floor).
+        settings: Application settings containing:
+            - ``decline_recall_floor``: minimum top-chunk score required to proceed;
+              decline if top score is below this value (or no chunks returned).
+            - ``decline_advice_confidence_floor``: reserved for a future probabilistic
+              advice-seeking classifier; not used by the current regex-based approach,
+              which is binary (match = 1.0, no-match = 0.0).
 
     Returns:
-        DeclineDecision: Whether to decline and the reason.
+        DeclineDecision: Whether to decline and the reason. The ``reason`` field
+        includes score details for recall-floor declines.
     """
-    # Recall floor check — decline if no chunks retrieved
-    if len(chunks) == 0:
-        return DeclineDecision(declined=True, reason="recall_floor: no chunks retrieved")
+    # Recall floor — decline if retrieval returned nothing useful.
+    # Uses settings.decline_recall_floor so the threshold is config-driven.
+    top_score = chunks[0].score if chunks else 0.0
+    if top_score < settings.decline_recall_floor:
+        return DeclineDecision(
+            declined=True,
+            reason=f"recall_floor: top score {top_score:.3f} < {settings.decline_recall_floor}",
+        )
 
     # Advice-seeking pattern check (EN)
     for pattern in _EN_PATTERNS:
