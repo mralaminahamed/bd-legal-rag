@@ -48,4 +48,6 @@ apps/**/.playwright/
 
 CLAUDE.md
 */**/CLAUDE.md
-/docs/
+/docs/*
+!/docs/01-SRS.md
+!/docs/02-Architecture.md
