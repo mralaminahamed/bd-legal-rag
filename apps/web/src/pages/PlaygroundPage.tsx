@@ -117,7 +117,7 @@ export function PlaygroundPage() {
   const hasContent = streaming || result;
 
   return (
-    <div className="flex flex-col" style={{ minHeight: "calc(100vh - 48px)" }}>
+    <div className="flex flex-col min-h-[calc(100vh-6rem)]">
       {/* Page header row */}
       <div className="flex items-center justify-between mb-5">
         <div>
