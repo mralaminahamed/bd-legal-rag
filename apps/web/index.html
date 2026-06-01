@@ -1,39 +1,42 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        <title>Bangladesh Legal RAG</title>
-        <meta
-            name="description"
-            content="Operator console for the Bangladesh Legal RAG: manage acts, trigger ingestion, inspect metrics, and test grounded answers."
-        />
-        <meta name="author" content="Al Amin Ahamed" />
-        <meta name="robots" content="noindex, nofollow" />
-        <meta name="color-scheme" content="light dark" />
-        <meta name="theme-color" content="#111827" />
+    <title>BD Legal RAG</title>
+    <meta
+      name="description"
+      content="Operator console for the Bangladesh Legal RAG — manage acts, trigger ingestion, inspect metrics, and test bilingual grounded answers."
+    />
+    <meta name="author" content="Al Amin Ahamed" />
+    <!-- Internal operator tool — keep out of search engines -->
+    <meta name="robots" content="noindex, nofollow" />
 
-        <!-- Icons -->
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="manifest" href="/site.webmanifest" />
+    <!-- Theme colors: light surface / dark nav -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f5fb" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#1a2744" />
 
-        <!-- Tabler Icons webfont -->
-        <link
-            rel="stylesheet"
-            href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
-        />
+    <!-- Favicon — matches Logo component -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
 
-        <!-- Open Graph -->
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content="Bangladesh Legal RAG" />
-        <meta property="og:description" content="Operator console for the Bangladesh Legal RAG." />
-        <meta property="og:site_name" content="Bangladesh Legal RAG" />
-    </head>
-    <body>
-        <div id="root"></div>
-        <script type="module" src="/src/main.tsx"></script>
-    </body>
+    <!-- Preconnect to CDN for Tabler icons -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <!-- Tabler Icons webfont (not an npm dep — loaded from CDN) -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
+    />
+
+    <!-- Open Graph (for internal link previews) -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:title"       content="BD Legal RAG" />
+    <meta property="og:description" content="Operator console for the Bangladesh Legal RAG." />
+    <meta property="og:site_name"   content="BD Legal RAG" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
