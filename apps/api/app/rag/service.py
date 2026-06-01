@@ -10,6 +10,7 @@ Author: Al Amin Ahamed.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import date
@@ -23,6 +24,8 @@ from app.rag.confidence import compute_confidence
 from app.rag.lang_router import detect_language
 from app.rag.reranker import RerankerUnavailable, rerank
 from app.rag.retriever import RetrievedChunk, hybrid_retrieve
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -116,16 +119,23 @@ async def retrieve(
     search_lang = "bn" if detected == "bn" else "en"
 
     # --- 2. Embed query ---
-    if cfg.cohere_api_key is None:
-        raise ValueError(
-            "BDRAG_COHERE_API_KEY is not configured; embed_query requires a valid API key"
-        )
-    embedder = CohereEmbedder(
-        api_key=cfg.cohere_api_key.get_secret_value(),
-        model=cfg.embed_model,
-        batch_size=cfg.embed_batch_size,
+    # When Cohere key is absent or empty, degrade to lexical-only retrieval.
+    # Embedding is optional; hybrid_retrieve skips vector search when None.
+    _cohere_key = (
+        cfg.cohere_api_key.get_secret_value() if cfg.cohere_api_key else ""
     )
-    embedding = await embedder.embed_query(query)
+    embedding: list[float] | None = None
+    if _cohere_key:
+        embedder = CohereEmbedder(
+            api_key=_cohere_key,
+            model=cfg.embed_model,
+            batch_size=cfg.embed_batch_size,
+        )
+        embedding = await embedder.embed_query(query)
+    else:
+        logger.warning(
+            "BDRAG_COHERE_API_KEY not configured — falling back to lexical-only retrieval"
+        )
 
     # --- 3. Primary hybrid retrieve ---
     candidates = await hybrid_retrieve(session, query, embedding, scope, search_lang, aod, cfg)

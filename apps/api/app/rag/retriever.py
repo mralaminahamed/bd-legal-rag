@@ -312,7 +312,7 @@ async def lexical_search(
 async def hybrid_retrieve(
     session: AsyncSession,
     query: str,
-    embedding: list[float],
+    embedding: list[float] | None,
     act_ids: list[uuid.UUID],
     language: str,
     as_of_date: date,
@@ -320,13 +320,16 @@ async def hybrid_retrieve(
 ) -> list[RetrievedChunk]:
     """Orchestrate vector + lexical search and RRF fusion (FR-QR-4).
 
-    Skips a signal entirely when its weight is zero. Runs the active
-    signal(s) sequentially (shared session) and fuses via :func:`_fuse`.
+    Skips a signal entirely when its weight is zero or when ``embedding`` is
+    ``None`` (no embedding available — Cohere key not configured). In the
+    latter case only lexical search runs, giving a degraded-quality but
+    functional result for local dev without a Cohere key.
 
     Args:
         session: Active async database session.
         query: Raw query string (lexical search).
-        embedding: 1024-dim query embedding (vector search).
+        embedding: 1024-dim query embedding (vector search), or ``None`` to
+            skip vector search and use lexical-only retrieval.
         act_ids: Acts to scope; empty = all acts.
         language: ``"bn"`` or ``"en"``.
         as_of_date: Effective date for filtering.
@@ -338,7 +341,7 @@ async def hybrid_retrieve(
     v_hits: list[_Hit] = []
     l_hits: list[_Hit] = []
 
-    if settings.vector_weight > 0.0:
+    if embedding is not None and settings.vector_weight > 0.0:
         v_hits = await vector_search(session, embedding, act_ids, language, as_of_date, settings)
     if settings.lexical_weight > 0.0:
         l_hits = await lexical_search(session, query, act_ids, language, as_of_date, settings)
