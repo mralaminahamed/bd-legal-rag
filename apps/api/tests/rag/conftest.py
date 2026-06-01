@@ -25,6 +25,7 @@ async def _flush_response_cache() -> AsyncIterator[None]:
     Yields:
         None: Control to the test body.
     """
+
     async def _flush() -> None:
         try:
             from app.db.redis import get_redis

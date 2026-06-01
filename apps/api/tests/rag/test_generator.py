@@ -16,6 +16,7 @@ from app.rag.service import RetrievalResult
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
+
 def _settings(**overrides: Any) -> Settings:
     return Settings.model_validate(overrides)
 
@@ -118,6 +119,7 @@ def mock_db_session() -> MagicMock:
 
 # ─── Type shape tests ──────────────────────────────────────────────────────────
 
+
 def test_stream_event_has_required_fields() -> None:
     from app.rag.generator import StreamEvent
 
@@ -155,14 +157,17 @@ def test_generate_response_has_required_fields() -> None:
 
 # ─── Disclaimer present on every path (NFR-LS-1) ─────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_disclaimer_present_on_normal_response_NFR_LS_1(
     mock_db_session: Any,
 ) -> None:
     from app.rag.generator import generate
 
-    with _mock_provider("The section provides for one weekly holiday."), \
-         _mock_act_query(mock_db_session):
+    with (
+        _mock_provider("The section provides for one weekly holiday."),
+        _mock_act_query(mock_db_session),
+    ):
         resp = await generate(
             retrieval_result=_retrieval_result(),
             session=mock_db_session,
@@ -213,8 +218,7 @@ async def test_disclaimer_present_on_cache_hit_NFR_LS_1(
 ) -> None:
     from app.rag.generator import generate
 
-    with _mock_cache_hit("Cached answer without disclaimer"), \
-         _mock_act_query(mock_db_session):
+    with _mock_cache_hit("Cached answer without disclaimer"), _mock_act_query(mock_db_session):
         resp = await generate(
             retrieval_result=_retrieval_result(),
             session=mock_db_session,
@@ -226,6 +230,7 @@ async def test_disclaimer_present_on_cache_hit_NFR_LS_1(
 
 
 # ─── Decline gate ─────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_advice_seeking_en_declines_NFR_LS_3(mock_db_session: Any) -> None:
@@ -247,15 +252,20 @@ async def test_advice_seeking_bn_declines_NFR_LS_3(mock_db_session: Any) -> None
 
 # ─── Citation validator strips fabricated placeholders ────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_citation_validator_strips_fabricated_placeholder_ADR_005(
     mock_db_session: Any,
 ) -> None:
     from app.rag.generator import generate
 
-    with _mock_provider("Per {{cite:12345678-1234-1234-1234-123456789abc}} workers get rest. "
-                        "Also {{cite:00000000-0000-0000-0000-000000000000}} says something."), \
-         _mock_act_query(mock_db_session):
+    with (
+        _mock_provider(
+            "Per {{cite:12345678-1234-1234-1234-123456789abc}} workers get rest. "
+            "Also {{cite:00000000-0000-0000-0000-000000000000}} says something."
+        ),
+        _mock_act_query(mock_db_session),
+    ):
         resp = await generate(
             retrieval_result=_retrieval_result(),
             session=mock_db_session,
@@ -268,6 +278,7 @@ async def test_citation_validator_strips_fabricated_placeholder_ADR_005(
 
 # ─── Guardrails ───────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_guardrails_retry_on_first_violation(mock_db_session: Any) -> None:
     from app.rag.generator import generate
@@ -277,6 +288,7 @@ async def test_guardrails_retry_on_first_violation(mock_db_session: Any) -> None
     async def provider_complete(req: Any) -> Any:
         nonlocal call_count
         from app.llm.base import CompletionResult, TokenUsage
+
         call_count += 1
         if call_count == 1:
             return CompletionResult(
@@ -295,8 +307,10 @@ async def test_guardrails_retry_on_first_violation(mock_db_session: Any) -> None
     mock_provider.model = "claude-sonnet-4-6"
     mock_provider.complete = provider_complete
 
-    with patch("app.llm.factory.create_provider", return_value=mock_provider), \
-         _mock_act_query(mock_db_session):
+    with (
+        patch("app.llm.factory.create_provider", return_value=mock_provider),
+        _mock_act_query(mock_db_session),
+    ):
         resp = await generate(
             retrieval_result=_retrieval_result(),
             session=mock_db_session,
@@ -314,6 +328,7 @@ async def test_guardrails_fail_open_on_second_violation(mock_db_session: Any) ->
 
     async def always_violates(req: Any) -> Any:
         from app.llm.base import CompletionResult, TokenUsage
+
         return CompletionResult(
             text="You must comply with all regulations.",
             usage=TokenUsage(10, 5),
@@ -324,8 +339,10 @@ async def test_guardrails_fail_open_on_second_violation(mock_db_session: Any) ->
     mock_provider.model = "claude-sonnet-4-6"
     mock_provider.complete = always_violates
 
-    with patch("app.llm.factory.create_provider", return_value=mock_provider), \
-         _mock_act_query(mock_db_session):
+    with (
+        patch("app.llm.factory.create_provider", return_value=mock_provider),
+        _mock_act_query(mock_db_session),
+    ):
         resp = await generate(
             retrieval_result=_retrieval_result(),
             session=mock_db_session,
@@ -336,6 +353,7 @@ async def test_guardrails_fail_open_on_second_violation(mock_db_session: Any) ->
 
 
 # ─── Circuit breaker ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_circuit_breaker_refuses_oversized_request(mock_db_session: Any) -> None:
@@ -354,6 +372,7 @@ async def test_circuit_breaker_refuses_oversized_request(mock_db_session: Any) -
 
 # ─── Streaming ────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_stream_yields_token_events_then_final(mock_db_session: Any) -> None:
     from app.rag.generator import StreamEvent, generate_stream
@@ -368,8 +387,10 @@ async def test_stream_yields_token_events_then_final(mock_db_session: Any) -> No
     mock_provider.model = "claude-sonnet-4-6"
     mock_provider.stream = fake_stream
 
-    with patch("app.llm.factory.create_provider", return_value=mock_provider), \
-         _mock_act_query(mock_db_session):
+    with (
+        patch("app.llm.factory.create_provider", return_value=mock_provider),
+        _mock_act_query(mock_db_session),
+    ):
         events: list[StreamEvent] = []
         async for ev in generate_stream(
             retrieval_result=_retrieval_result(),
