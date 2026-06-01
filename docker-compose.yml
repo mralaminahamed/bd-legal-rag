@@ -2,9 +2,9 @@
 # Author: Al Amin Ahamed.
 #
 # `docker compose up` boots PostgreSQL (pgvector), Redis, the FastAPI app, the
-# Celery worker, and Celery beat with no host dependencies beyond Docker
-# (NFR-PT-1). The app, worker, and beat share one image and one configuration
-# surface; behaviour differs only by command.
+# Celery worker, Celery beat, and the React operator dashboard — no host
+# dependencies beyond Docker (NFR-PT-1). The app, worker, and beat share one
+# image and one configuration surface; behaviour differs only by command.
 
 x-app-env: &app-env
   BDRAG_ENVIRONMENT: development
@@ -58,8 +58,9 @@ services:
 
   app:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
     environment:
       <<: *app-env
     command:
@@ -72,18 +73,17 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test:
-        ["CMD-SHELL",
-         "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
 
   worker:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
     environment:
       <<: *app-env
     command:
@@ -93,11 +93,19 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL",
+             "celery -A app.ingestion.tasks:celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 2>&1 | grep -q 'pong'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   beat:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
     environment:
       <<: *app-env
     command:
@@ -106,24 +114,25 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      # beat writes (and periodically rewrites) the schedule DB on startup;
+      # its existence means beat initialised successfully.
+      test: ["CMD-SHELL", "test -f /tmp/celerybeat-schedule || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
-  # Bilingual search web interface (apps/web) — served by nginx, no build step.
+  # Operator dashboard (apps/web) — Vite/React build served by nginx.
   web:
-    image: nginx:1.27-alpine
-    volumes:
-      - ./apps/web:/usr/share/nginx/html:ro
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     ports:
       - "8080:80"
-
-  # Admin console (apps/admin) — Vite/React build served by nginx.
-  admin:
-    build:
-      context: ./apps/admin
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: http://localhost:8000
-    ports:
-      - "8081:80"
     depends_on:
       - app
 

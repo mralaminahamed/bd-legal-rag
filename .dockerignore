@@ -9,11 +9,12 @@ __pycache__
 .pytest_cache
 .coverage
 htmlcov
-tests
-docs
+apps/api/tests
 apps/web
+docs
 .env
 .env.*
 !.env.example
 .DS_Store
 README.md
+*.md
