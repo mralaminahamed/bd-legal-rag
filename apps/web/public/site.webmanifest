@@ -1,9 +1,10 @@
 {
   "name": "BD Legal RAG",
   "short_name": "BD Legal RAG",
-  "description": "Operator console for the Bangladesh Legal RAG — manage acts, ingestion, and bilingual Q&A.",
+  "description": "Operator console for the Bangladesh Legal RAG — bilingual statutory Q&A, acts management, and metrics.",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "landscape",
   "background_color": "#f1f5fb",
   "theme_color": "#1a2744",
   "icons": [
@@ -11,6 +12,18 @@
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
