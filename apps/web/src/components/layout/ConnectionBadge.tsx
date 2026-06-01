@@ -2,7 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { getHealth } from "@/api/admin";
 import { cn } from "@/lib/utils";
 
-export function ConnectionBadge() {
+interface ConnectionBadgeProps {
+  collapsed?: boolean;
+}
+
+export function ConnectionBadge({ collapsed }: ConnectionBadgeProps) {
   const { data, isError } = useQuery({
     queryKey: ["health"],
     queryFn: getHealth,
@@ -12,16 +16,33 @@ export function ConnectionBadge() {
 
   const ok = !isError && data?.status === "ok";
 
+  if (collapsed) {
+    return (
+      <span
+        title={ok ? "API online" : "API offline"}
+        className={cn(
+          "w-2 h-2 rounded-full",
+          ok ? "bg-score-green" : "bg-score-red"
+        )}
+      />
+    );
+  }
+
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium",
         ok
-          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+          ? "bg-score-green-bg text-score-green border border-score-green-border"
+          : "bg-score-red-bg text-score-red border border-score-red-border"
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full", ok ? "bg-green-500" : "bg-red-500")} />
+      <span
+        className={cn(
+          "w-1.5 h-1.5 rounded-full",
+          ok ? "bg-score-green" : "bg-score-red"
+        )}
+      />
       {ok ? "online" : "offline"}
     </span>
   );

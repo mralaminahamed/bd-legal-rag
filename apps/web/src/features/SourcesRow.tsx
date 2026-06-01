@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SourcesRowProps {
   act: AdminActSummary;
@@ -40,32 +40,50 @@ export function SourcesRow({ act }: SourcesRowProps) {
   return (
     <>
       <tr
-        className="border-b border-border cursor-pointer hover:bg-muted/50"
+        className={cn(
+          "border-b border-border cursor-pointer transition-colors",
+          expanded ? "bg-page/40" : "hover:bg-page/60"
+        )}
         onClick={() => setExpanded((e) => !e)}
       >
-        <td className="px-3 py-2 text-sm font-medium">{act.short_name}</td>
-        <td className="px-3 py-2 text-sm text-muted-foreground">{act.act_year}</td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-3">
+          <div className="flex items-center gap-2">
+            <i
+              className={cn(
+                "ti text-sm text-text-4 transition-transform shrink-0",
+                expanded ? "ti-chevron-down" : "ti-chevron-right"
+              )}
+            />
+            <div>
+              <div className="text-sm font-semibold text-text-1">{act.short_name}</div>
+              <div className="text-[11px] text-text-4 truncate max-w-xs">{act.full_name_en}</div>
+            </div>
+          </div>
+        </td>
+        <td className="px-3 py-3">
+          <span className="text-sm text-text-3 tabular-nums">{act.act_year}</span>
+        </td>
+        <td className="px-3 py-3">
           <Badge variant={act.status === "in_force" ? "success" : "secondary"}>
             {act.status}
           </Badge>
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-3">
           {act.last_run_bn ? (
             <RunBadge status={act.last_run_bn.status} />
           ) : (
-            <span className="text-muted-foreground text-xs">never</span>
+            <span className="text-text-4 text-xs">never</span>
           )}
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-3">
           {act.last_run_en ? (
             <RunBadge status={act.last_run_en.status} />
           ) : (
-            <span className="text-muted-foreground text-xs">never</span>
+            <span className="text-text-4 text-xs">never</span>
           )}
         </td>
         <td
-          className="px-3 py-2"
+          className="px-3 py-3"
           onClick={(e) => e.stopPropagation()}
         >
           <Button
@@ -74,51 +92,52 @@ export function SourcesRow({ act }: SourcesRowProps) {
             onClick={() => ingest.mutate()}
             disabled={ingest.isPending}
           >
-            <RefreshCw
-              className={`h-3 w-3 ${ingest.isPending ? "animate-spin" : ""}`}
+            <i
+              className={`ti ti-refresh text-sm ${ingest.isPending ? "animate-spin" : ""}`}
             />
             Ingest
           </Button>
         </td>
       </tr>
+
       {expanded && (
-        <tr className="border-b border-border bg-muted/30">
-          <td colSpan={6} className="px-6 py-3 text-xs text-muted-foreground">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <div className="font-medium mb-1">Bengali (BN)</div>
-                {act.last_run_bn ? (
-                  <div>
-                    Status: {act.last_run_bn.status} · Started:{" "}
-                    {formatDateTime(act.last_run_bn.started_at)}
-                    <br />
-                    Provisions: {act.last_run_bn.provisions_processed} · Chunks:{" "}
-                    {act.last_run_bn.chunks_created}
-                    {act.last_run_bn.error && (
-                      <div className="text-red-500 mt-1">{act.last_run_bn.error}</div>
-                    )}
+        <tr className="border-b border-border bg-page/30">
+          <td colSpan={6} className="px-6 py-4">
+            <div className="grid grid-cols-2 gap-6">
+              {[
+                { lang: "Bengali (BN)", run: act.last_run_bn },
+                { lang: "English (EN)", run: act.last_run_en },
+              ].map(({ lang, run }) => (
+                <div key={lang}>
+                  <div className="text-[12px] font-semibold text-text-3 mb-2 flex items-center gap-1.5">
+                    <i className="ti ti-language text-sm text-accent" />
+                    {lang}
                   </div>
-                ) : (
-                  "No runs"
-                )}
-              </div>
-              <div>
-                <div className="font-medium mb-1">English (EN)</div>
-                {act.last_run_en ? (
-                  <div>
-                    Status: {act.last_run_en.status} · Started:{" "}
-                    {formatDateTime(act.last_run_en.started_at)}
-                    <br />
-                    Provisions: {act.last_run_en.provisions_processed} · Chunks:{" "}
-                    {act.last_run_en.chunks_created}
-                    {act.last_run_en.error && (
-                      <div className="text-red-500 mt-1">{act.last_run_en.error}</div>
-                    )}
-                  </div>
-                ) : (
-                  "No runs"
-                )}
-              </div>
+                  {run ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-[12px]">
+                        <span className="text-text-4">Status:</span>
+                        <RunBadge status={run.status} />
+                      </div>
+                      <div className="text-[12px] text-text-4">
+                        Started: <span className="text-text-2">{formatDateTime(run.started_at)}</span>
+                      </div>
+                      <div className="text-[12px] text-text-4">
+                        Provisions: <span className="text-text-2 tabular-nums">{run.provisions_processed}</span>
+                        {" · "}
+                        Chunks: <span className="text-text-2 tabular-nums">{run.chunks_created}</span>
+                      </div>
+                      {run.error && (
+                        <div className="text-[12px] text-score-red mt-1 bg-score-red-bg px-2 py-1 rounded">
+                          {run.error}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[12px] text-text-4 italic">No runs yet</span>
+                  )}
+                </div>
+              ))}
             </div>
           </td>
         </tr>

@@ -5,11 +5,16 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { SourcesRow } from "@/features/SourcesRow";
 import { RegisterActModal } from "@/features/RegisterActModal";
 import { toast } from "sonner";
-import { RefreshCw, Plus } from "lucide-react";
 
 export function ActsPage() {
   const [search, setSearch] = useState("");
@@ -38,7 +43,7 @@ export function ActsPage() {
   );
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-0">
       <PageHeader
         title="Acts Registry"
         description="Statutory corpus — ingestion state per language"
@@ -49,7 +54,7 @@ export function ActsPage() {
               variant="outline"
               onClick={() => setShowRegister(true)}
             >
-              <Plus className="h-4 w-4" />
+              <i className="ti ti-plus text-sm" />
               Register Act
             </Button>
             <Button
@@ -57,8 +62,8 @@ export function ActsPage() {
               onClick={() => ingestAll.mutate()}
               disabled={ingestAll.isPending}
             >
-              <RefreshCw
-                className={`h-4 w-4 ${ingestAll.isPending ? "animate-spin" : ""}`}
+              <i
+                className={`ti ti-refresh text-sm ${ingestAll.isPending ? "animate-spin" : ""}`}
               />
               Ingest all
             </Button>
@@ -66,23 +71,26 @@ export function ActsPage() {
         }
       />
 
-      <div className="p-6 space-y-4">
-        <Input
-          placeholder="Search acts…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
-        />
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="relative max-w-sm">
+          <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-text-4 text-sm pointer-events-none" />
+          <Input
+            placeholder="Search acts…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
 
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-[10px] border border-border overflow-hidden bg-surface">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Act</TableHead>
                 <TableHead>Year</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>BN run</TableHead>
-                <TableHead>EN run</TableHead>
+                <TableHead>BN</TableHead>
+                <TableHead>EN</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -90,7 +98,7 @@ export function ActsPage() {
               {actsQ.isLoading &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <td colSpan={6} className="px-3 py-2">
+                    <td colSpan={6} className="px-3 py-2.5">
                       <Skeleton className="h-5 w-full" />
                     </td>
                   </TableRow>
@@ -100,11 +108,13 @@ export function ActsPage() {
               ))}
               {!actsQ.isLoading && filtered.length === 0 && (
                 <TableRow>
-                  <td
-                    colSpan={6}
-                    className="px-3 py-8 text-center text-sm text-muted-foreground"
-                  >
-                    {search ? "No acts match your search" : "No acts registered"}
+                  <td colSpan={6} className="px-3 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2 text-text-4">
+                      <i className="ti ti-books-off text-2xl" />
+                      <span className="text-sm">
+                        {search ? "No acts match your search" : "No acts registered"}
+                      </span>
+                    </div>
                   </td>
                 </TableRow>
               )}

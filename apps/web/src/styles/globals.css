@@ -1,32 +1,98 @@
 @import "tailwindcss";
+@import "@fontsource-variable/geist";
+
+@theme {
+  /* Typography */
+  --font-sans: "Geist Variable", system-ui, sans-serif;
+
+  /* Navigation sidebar */
+  --color-nav: #111827;
+  --color-nav-border: rgba(255, 255, 255, 0.07);
+
+  /* Brand / accent — deep institutional blue */
+  --color-accent: #1d4ed8;
+  --color-accent-hover: #1e40af;
+  --color-accent-light: #eff6ff;
+  --color-accent-border: #bfdbfe;
+  --color-accent-text: #93c5fd;
+
+  /* Content surfaces */
+  --color-page: #eef2fa;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+
+  /* Text scale */
+  --color-text-1: #0f172a;
+  --color-text-2: #374151;
+  --color-text-3: #64748b;
+  --color-text-4: #94a3b8;
+  --color-text-5: #cbd5e1;
+
+  /* Semantic status */
+  --color-score-green: #059669;
+  --color-score-green-bg: #ecfdf5;
+  --color-score-green-border: #a7f3d0;
+  --color-score-blue: #2563eb;
+  --color-score-blue-bg: #eff6ff;
+  --color-score-blue-border: #bfdbfe;
+  --color-score-amber: #d97706;
+  --color-score-amber-bg: #fffbeb;
+  --color-score-amber-border: #fde68a;
+  --color-score-red: #dc2626;
+  --color-score-red-bg: #fef2f2;
+  --color-score-red-border: #fecaca;
+}
+
+/* Enable class-based dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --color-page: #0f172a;
+  --color-surface: #1e293b;
+  --color-border: #334155;
+  --color-text-1: #f1f5f9;
+  --color-text-2: #e2e8f0;
+  --color-text-3: #94a3b8;
+  --color-text-4: #64748b;
+  --color-text-5: #475569;
+  --color-accent-light: rgba(29, 78, 216, 0.12);
+  --color-accent-border: #1d4ed8;
+  --color-score-green-bg: rgba(5, 150, 105, 0.12);
+  --color-score-green-border: rgba(167, 243, 208, 0.25);
+  --color-score-amber-bg: rgba(217, 119, 6, 0.12);
+  --color-score-amber-border: rgba(253, 230, 138, 0.25);
+  --color-score-red-bg: rgba(220, 38, 38, 0.12);
+  --color-score-red-border: rgba(254, 202, 202, 0.25);
+  --color-score-blue-bg: rgba(37, 99, 235, 0.12);
+  --color-score-blue-border: rgba(191, 219, 254, 0.25);
+}
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --border: 214.3 31.8% 91.4%;
-    --radius: 0.5rem;
+  * {
+    box-sizing: border-box;
   }
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --border: 240 3.7% 15.9%;
-  }
-  * { border-color: hsl(var(--border)); }
+
+  html,
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    background-color: var(--color-page);
+    color: var(--color-text-1);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-4);
   }
 }

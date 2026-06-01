@@ -22,11 +22,11 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       ref={ref}
       onClose={onClose}
       className={cn(
-        "rounded-lg border border-border bg-card p-6 shadow-xl backdrop:bg-black/50 w-full max-w-md",
+        "rounded-[12px] border border-border bg-surface p-6 shadow-2xl backdrop:bg-black/60 w-full max-w-md",
         className
       )}
     >
-      <h2 className="mb-4 text-lg font-semibold">{title}</h2>
+      <h2 className="mb-4 text-[15px] font-bold text-text-1">{title}</h2>
       {children}
     </dialog>
   );
