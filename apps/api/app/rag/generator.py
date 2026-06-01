@@ -474,12 +474,10 @@ async def generate_stream(
     decline_version = s.active_decline_version
     reranker_version = s.rerank_model
 
-    prompt_mod = prompt_registry.resolve(prompt_family, prompt_version)
-    rendered = prompt_mod.render(
-        question=retrieval_result.query,
-        chunks=retrieval_result.chunks,
-        language=language,
-    )
+    disclaimer_obj = disclaimer_mod.resolve(disclaimer_version)
+    disc = disclaimer_obj.bn if language == "bn" else disclaimer_obj.en
+
+    # ── 1. Compute cache key (no prompt render needed) ─────────────────────────
     chunk_ids = [str(c.chunk_id) for c in retrieval_result.chunks]
     key = cache_key(
         query=retrieval_result.query,
@@ -490,12 +488,9 @@ async def generate_stream(
         reranker_version=reranker_version,
     )
 
-    disclaimer_obj = disclaimer_mod.resolve(disclaimer_version)
-    disc = disclaimer_obj.bn if language == "bn" else disclaimer_obj.en
-
     cache = _get_cache(s)
 
-    # ── 1. Cache hit → single final event ─────────────────────────────────────
+    # ── 2. Cache hit → single final event ─────────────────────────────────────
     if cache:
         cached_text = await cache.get(key)
         if cached_text is not None:
@@ -517,7 +512,7 @@ async def generate_stream(
             )
             return
 
-    # ── 2. Decline gate → single final event ──────────────────────────────────
+    # ── 3. Decline gate → single final event ──────────────────────────────────
     decline_decision = decline_classify(
         retrieval_result.query,
         chunks=retrieval_result.chunks,
@@ -540,12 +535,19 @@ async def generate_stream(
         )
         return
 
-    # ── 3. Resolve act metadata (DB) ──────────────────────────────────────────
+    # ── 4. Resolve act metadata (DB) and render prompt ────────────────────────
     act_ids = {str(c.act_id) for c in retrieval_result.chunks}
     act_map = await _resolve_act_metadata(session, act_ids)
     contexts = _build_citation_contexts(retrieval_result.chunks, act_map)
 
-    # ── 4. Circuit breaker → single final event ───────────────────────────────
+    prompt_mod = prompt_registry.resolve(prompt_family, prompt_version)
+    rendered = prompt_mod.render(
+        question=retrieval_result.query,
+        chunks=retrieval_result.chunks,
+        language=language,
+    )
+
+    # ── 5. Circuit breaker → single final event ───────────────────────────────
     input_tokens = _estimate_input_tokens(rendered.system, rendered.user)
     try:
         guard(
@@ -572,12 +574,17 @@ async def generate_stream(
         )
         return
 
-    # ── 5. Stream from provider ────────────────────────────────────────────────
+    # ── 6. Stream from provider ────────────────────────────────────────────────
     provider = llm_factory.create_provider(s)
     request = CompletionRequest(
         system=rendered.system,
         user=rendered.user,
         max_tokens=s.llm_max_output_tokens,
+    )
+    stricter_system = (
+        rendered.system
+        + "\n\nSTRICT REMINDER: Do NOT assert legal conclusions in your own voice. "
+        "Every normative statement must be attributed to a provision with {{cite:chunk_id}}."
     )
 
     if hasattr(provider, "stream"):
@@ -632,7 +639,54 @@ async def generate_stream(
             )
             return
 
-    # ── 6. Validate and emit final event ──────────────────────────────────────
+    # ── 7. Guardrails scan (retry once with stricter prompt) ──────────────────
+    violation = guardrails_scan(raw_text)
+    if violation is not None:
+        logger.warning("stream_guardrails_violation attempt=1 phrase=%r", violation)
+        retry_req = CompletionRequest(
+            system=stricter_system,
+            user=rendered.user,
+            max_tokens=s.llm_max_output_tokens,
+        )
+        try:
+            retry_result = await provider.complete(retry_req)
+            raw_text = retry_result.text
+            violation2 = guardrails_scan(raw_text)
+            if violation2 is not None:
+                logger.warning("stream_guardrails_violation attempt=2 phrase=%r", violation2)
+                fail_body = _build_failopen_answer(retrieval_result.chunks, contexts, language)
+                answer = disclaimer_mod.inject(
+                    fail_body, version=disclaimer_version, language=language
+                )
+                yield StreamEvent(
+                    type="final",
+                    text="",
+                    answer=answer,
+                    citations=list(contexts.keys()),
+                    disclaimer=disc,
+                    cached=False,
+                    degraded=True,
+                    declined=False,
+                    usage=None,
+                )
+                return
+        except ProviderUnavailable:
+            fail_body = _build_failopen_answer(retrieval_result.chunks, contexts, language)
+            answer = disclaimer_mod.inject(fail_body, version=disclaimer_version, language=language)
+            yield StreamEvent(
+                type="final",
+                text="",
+                answer=answer,
+                citations=list(contexts.keys()),
+                disclaimer=disc,
+                cached=False,
+                degraded=True,
+                declined=False,
+                usage=None,
+            )
+            return
+
+    # ── 8. Validate citations and emit final event ────────────────────────────
     resolved = resolve_placeholders(raw_text, contexts=contexts, language=language)
     answer = disclaimer_mod.inject(resolved, version=disclaimer_version, language=language)
 
