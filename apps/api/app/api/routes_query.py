@@ -114,9 +114,7 @@ async def _log_query(
     """
     # detected_language is Literal["bn","en","mixed"]; DB check expects "bn" or "en"
     lang: Literal["bn", "en"] = "en" if detected_language != "bn" else "bn"
-    selected: Literal["bn", "en"] = (
-        body.language if body.language in ("bn", "en") else lang  # type: ignore[assignment]
-    )
+    selected: Literal["bn", "en"] = body.language or lang  # type: ignore[assignment]
 
     record = Query(
         correlation_id=request.headers.get("X-Correlation-ID", ""),
@@ -175,16 +173,14 @@ async def query_endpoint(
 
     act_id = await _resolve_act_id(session, body.act_slug)
     act_ids = [act_id] if act_id else []
-    language: Literal["bn", "en", "auto"] = (
-        body.language if body.language in ("bn", "en") else "auto"  # type: ignore[assignment]
-    )
+    language = body.language or "auto"
 
     retrieval = await retrieve(
         session,
         body.question,
         settings,
         act_ids=act_ids,
-        language=language,
+        language=language,  # type: ignore[arg-type]
         as_of_date=body.as_of_date,
     )
 
@@ -253,16 +249,14 @@ async def query_stream_endpoint(
 
     act_id = await _resolve_act_id(session, body.act_slug)
     act_ids = [act_id] if act_id else []
-    language: Literal["bn", "en", "auto"] = (
-        body.language if body.language in ("bn", "en") else "auto"  # type: ignore[assignment]
-    )
+    language = body.language or "auto"
 
     retrieval = await retrieve(
         session,
         body.question,
         settings,
         act_ids=act_ids,
-        language=language,
+        language=language,  # type: ignore[arg-type]
         as_of_date=body.as_of_date,
     )
 
@@ -315,6 +309,8 @@ async def query_stream_endpoint(
                 confidence=retrieval.confidence,
                 latency_ms=latency_ms,
             )
+        else:
+            logger.warning("stream completed with no final event")
 
     return StreamingResponse(
         _event_stream(),
