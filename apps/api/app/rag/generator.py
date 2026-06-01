@@ -5,6 +5,7 @@ Orchestrates the fixed generation sequence:
     cache.get
       → decline_gate.classify
           → if decline → decline_response ──┐
+      → _resolve_act_metadata (DB)          │
       → circuit_breaker.guard               │
       → provider.complete / .stream         │
           → on ProviderUnavailable → fail-open
@@ -237,8 +238,9 @@ async def generate(
     """Execute the fixed generation pipeline and return a full response.
 
     Pipeline:
-        cache.get → decline_gate.classify → circuit_breaker.guard
-        → provider.complete → citation.resolve_placeholders
+        cache.get → decline_gate.classify → _resolve_act_metadata (DB)
+        → circuit_breaker.guard → provider.complete
+        → citation.resolve_placeholders
         → guardrails.scan (retry once on violation)
         → disclaimer.inject → cache.set
 
@@ -267,7 +269,43 @@ async def generate(
     disclaimer_obj = disclaimer_mod.resolve(disclaimer_version)
     disc = disclaimer_obj.bn if language == "bn" else disclaimer_obj.en
 
-    # ── 1. Decline gate (early — before any DB or LLM work) ───────────────────
+    # ── 1. Compute cache key (no DB needed) ───────────────────────────────────
+    chunk_ids = [str(c.chunk_id) for c in retrieval_result.chunks]
+    key = cache_key(
+        query=retrieval_result.query,
+        chunk_ids=chunk_ids,
+        as_of_date=str(retrieval_result.as_of_date),
+        model=_resolve_model_name(s),
+        prompt_version=prompt_version,
+        reranker_version=reranker_version,
+    )
+
+    # ── 2. Cache check (before decline gate and DB) ───────────────────────────
+    cache = _get_cache(s)
+    if cache:
+        cached_text = await cache.get(key)
+        if cached_text is not None:
+            if not cached_text.endswith(disc):
+                base = (
+                    cached_text.rsplit("\n\n", 1)[0]
+                    if "\n\n" in cached_text
+                    else cached_text
+                )
+                cached_text = disclaimer_mod.inject(
+                    base, version=disclaimer_version, language=language
+                )
+            return GenerateResponse(
+                answer=cached_text,
+                citations=chunk_ids,
+                disclaimer=disc,
+                cached=True,
+                degraded=False,
+                declined=False,
+                usage=None,
+                disclaimer_version=disclaimer_version,
+            )
+
+    # ── 3. Decline gate (after cache, before any DB work) ─────────────────────
     decline_decision = decline_classify(
         retrieval_result.query,
         chunks=retrieval_result.chunks,
@@ -288,7 +326,7 @@ async def generate(
             disclaimer_version=disclaimer_version,
         )
 
-    # ── Resolve act metadata and citation contexts ────────────────────────────
+    # ── 4. Resolve act metadata and citation contexts (only for generation) ────
     act_ids = {str(c.act_id) for c in retrieval_result.chunks}
     act_map = await _resolve_act_metadata(session, act_ids)
     contexts = _build_citation_contexts(retrieval_result.chunks, act_map)
@@ -299,42 +337,8 @@ async def generate(
         chunks=retrieval_result.chunks,
         language=language,
     )
-    chunk_ids = [str(c.chunk_id) for c in retrieval_result.chunks]
-    key = cache_key(
-        query=retrieval_result.query,
-        chunk_ids=chunk_ids,
-        as_of_date=str(retrieval_result.as_of_date),
-        model=_resolve_model_name(s),
-        prompt_version=prompt_version,
-        reranker_version=reranker_version,
-    )
 
-    # ── 2. Cache check ────────────────────────────────────────────────────────
-    cache = _get_cache(s)
-    if cache:
-        cached_text = await cache.get(key)
-        if cached_text is not None:
-            if not cached_text.endswith(disc):
-                base = (
-                    cached_text.rsplit("\n\n", 1)[0]
-                    if "\n\n" in cached_text
-                    else cached_text
-                )
-                cached_text = disclaimer_mod.inject(
-                    base, version=disclaimer_version, language=language
-                )
-            return GenerateResponse(
-                answer=cached_text,
-                citations=list(contexts.keys()),
-                disclaimer=disc,
-                cached=True,
-                degraded=False,
-                declined=False,
-                usage=None,
-                disclaimer_version=disclaimer_version,
-            )
-
-    # ── 3. Circuit breaker (after decline check, before provider call) ────────
+    # ── 5. Circuit breaker (after decline check, before provider call) ────────
     input_tokens = _estimate_input_tokens(rendered.system, rendered.user)
     try:
         guard(
