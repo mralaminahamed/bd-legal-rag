@@ -60,7 +60,8 @@ ignore = ["D203", "D213"]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests and empty package markers need no public docstrings.
-"tests/*" = ["D"]
+# N802: test names may embed uppercase requirement IDs (NFR-LS-1, ADR-005 etc.).
+"tests/*" = ["D", "N802"]
 "**/__init__.py" = ["D104"]
 
 [tool.ruff.lint.pydocstyle]
