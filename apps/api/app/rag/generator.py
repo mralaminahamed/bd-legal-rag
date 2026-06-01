@@ -104,6 +104,7 @@ class GenerateResponse:
 
 # ── Private helpers ────────────────────────────────────────────────────────────
 
+
 async def _resolve_act_metadata(
     session: AsyncSession,
     act_ids: set[str],
@@ -229,6 +230,7 @@ def _get_cache(s: Settings) -> ResponseCache | None:
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
+
 async def generate(
     *,
     retrieval_result: RetrievalResult,
@@ -286,11 +288,7 @@ async def generate(
         cached_text = await cache.get(key)
         if cached_text is not None:
             if not cached_text.endswith(disc):
-                base = (
-                    cached_text.rsplit("\n\n", 1)[0]
-                    if "\n\n" in cached_text
-                    else cached_text
-                )
+                base = cached_text.rsplit("\n\n", 1)[0] if "\n\n" in cached_text else cached_text
                 cached_text = disclaimer_mod.inject(
                     base, version=disclaimer_version, language=language
                 )
@@ -375,8 +373,7 @@ async def generate(
         max_tokens=s.llm_max_output_tokens,
     )
     stricter_system = (
-        rendered.system
-        + "\n\nSTRICT REMINDER: Do NOT assert legal conclusions in your own voice. "
+        rendered.system + "\n\nSTRICT REMINDER: Do NOT assert legal conclusions in your own voice. "
         "Every normative statement must be attributed to a provision with {{cite:chunk_id}}."
     )
 
@@ -449,23 +446,205 @@ async def generate_stream(
     session: AsyncSession,
     settings: Settings,
 ) -> AsyncGenerator[StreamEvent, None]:
-    """Run the streaming generation pipeline.
+    """Execute the pipeline with streaming output.
+
+    Token events are provisional text deltas.  The ``final`` event carries
+    the fully validated, disclaimer-bearing answer.  Non-streaming providers
+    and all non-normal paths (decline, cache-hit, fail-open) emit a single
+    ``final`` event with no preceding token events.
+
+    The disclaimer is injected on every path (NFR-LS-1).
 
     Args:
-        retrieval_result: Ranked chunks and metadata from the retrieval service.
-        session: Async database session for act-metadata lookups.
-        settings: Active application configuration.
+        retrieval_result: Output from the retrieval pipeline.
+        session: Async database session for act metadata resolution.
+        settings: Application settings.
 
     Yields:
-        :class:`StreamEvent` instances: ``token`` deltas followed by a ``final`` event.
+        StreamEvent: Zero or more ``token`` events followed by one ``final`` event.
     """
-    raise NotImplementedError("generate_stream() pipeline implemented in Task 3")
-    yield StreamEvent(  # makes this an async generator for mypy
-        type="",
+    s = settings
+    language = retrieval_result.detected_language
+    if language == "mixed":
+        language = "en"
+
+    prompt_family = "legal_answer"
+    prompt_version = "v1"
+    disclaimer_version = s.active_disclaimer_version
+    decline_version = s.active_decline_version
+    reranker_version = s.rerank_model
+
+    prompt_mod = prompt_registry.resolve(prompt_family, prompt_version)
+    rendered = prompt_mod.render(
+        question=retrieval_result.query,
+        chunks=retrieval_result.chunks,
+        language=language,
+    )
+    chunk_ids = [str(c.chunk_id) for c in retrieval_result.chunks]
+    key = cache_key(
+        query=retrieval_result.query,
+        chunk_ids=chunk_ids,
+        as_of_date=str(retrieval_result.as_of_date),
+        model=_resolve_model_name(s),
+        prompt_version=prompt_version,
+        reranker_version=reranker_version,
+    )
+
+    disclaimer_obj = disclaimer_mod.resolve(disclaimer_version)
+    disc = disclaimer_obj.bn if language == "bn" else disclaimer_obj.en
+
+    cache = _get_cache(s)
+
+    # ── 1. Cache hit → single final event ─────────────────────────────────────
+    if cache:
+        cached_text = await cache.get(key)
+        if cached_text is not None:
+            if not cached_text.endswith(disc):
+                base = cached_text.rsplit("\n\n", 1)[0] if "\n\n" in cached_text else cached_text
+                cached_text = disclaimer_mod.inject(
+                    base, version=disclaimer_version, language=language
+                )
+            yield StreamEvent(
+                type="final",
+                text="",
+                answer=cached_text,
+                citations=chunk_ids,
+                disclaimer=disc,
+                cached=True,
+                degraded=False,
+                declined=False,
+                usage=None,
+            )
+            return
+
+    # ── 2. Decline gate → single final event ──────────────────────────────────
+    decline_decision = decline_classify(
+        retrieval_result.query,
+        chunks=retrieval_result.chunks,
+        settings=s,
+    )
+    if decline_decision.declined:
+        decline_text_obj = decline_mod.resolve(decline_version)
+        decline_body = decline_text_obj.bn if language == "bn" else decline_text_obj.en
+        answer = disclaimer_mod.inject(decline_body, version=disclaimer_version, language=language)
+        yield StreamEvent(
+            type="final",
+            text="",
+            answer=answer,
+            citations=[],
+            disclaimer=disc,
+            cached=False,
+            degraded=False,
+            declined=True,
+            usage=None,
+        )
+        return
+
+    # ── 3. Resolve act metadata (DB) ──────────────────────────────────────────
+    act_ids = {str(c.act_id) for c in retrieval_result.chunks}
+    act_map = await _resolve_act_metadata(session, act_ids)
+    contexts = _build_citation_contexts(retrieval_result.chunks, act_map)
+
+    # ── 4. Circuit breaker → single final event ───────────────────────────────
+    input_tokens = _estimate_input_tokens(rendered.system, rendered.user)
+    try:
+        guard(
+            input_tokens,
+            cost_per_1k_input=s.cost_per_1k_input_usd,
+            cost_per_1k_output=s.cost_per_1k_output_usd,
+            max_output_tokens=s.llm_max_output_tokens,
+            ceiling=s.cost_ceiling_usd_per_request,
+        )
+    except CostCeilingExceeded as exc:
+        logger.warning("stream cost_ceiling_exceeded projected=%.4f", exc.projected_cost)
+        fail_body = _build_failopen_answer(retrieval_result.chunks, contexts, language)
+        answer = disclaimer_mod.inject(fail_body, version=disclaimer_version, language=language)
+        yield StreamEvent(
+            type="final",
+            text="",
+            answer=answer,
+            citations=list(contexts.keys()),
+            disclaimer=disc,
+            cached=False,
+            degraded=True,
+            declined=False,
+            usage=None,
+        )
+        return
+
+    # ── 5. Stream from provider ────────────────────────────────────────────────
+    provider = llm_factory.create_provider(s)
+    request = CompletionRequest(
+        system=rendered.system,
+        user=rendered.user,
+        max_tokens=s.llm_max_output_tokens,
+    )
+
+    if hasattr(provider, "stream"):
+        collected: list[str] = []
+        try:
+            async for delta in provider.stream(request):
+                collected.append(delta)
+                yield StreamEvent(
+                    type="token",
+                    text=delta,
+                    answer=None,
+                    citations=None,
+                    disclaimer=None,
+                    cached=False,
+                    degraded=False,
+                    declined=False,
+                    usage=None,
+                )
+        except ProviderUnavailable:
+            fail_body = _build_failopen_answer(retrieval_result.chunks, contexts, language)
+            answer = disclaimer_mod.inject(fail_body, version=disclaimer_version, language=language)
+            yield StreamEvent(
+                type="final",
+                text="",
+                answer=answer,
+                citations=list(contexts.keys()),
+                disclaimer=disc,
+                cached=False,
+                degraded=True,
+                declined=False,
+                usage=None,
+            )
+            return
+        raw_text = "".join(collected)
+    else:
+        try:
+            result = await provider.complete(request)
+            raw_text = result.text
+        except ProviderUnavailable:
+            fail_body = _build_failopen_answer(retrieval_result.chunks, contexts, language)
+            answer = disclaimer_mod.inject(fail_body, version=disclaimer_version, language=language)
+            yield StreamEvent(
+                type="final",
+                text="",
+                answer=answer,
+                citations=list(contexts.keys()),
+                disclaimer=disc,
+                cached=False,
+                degraded=True,
+                declined=False,
+                usage=None,
+            )
+            return
+
+    # ── 6. Validate and emit final event ──────────────────────────────────────
+    resolved = resolve_placeholders(raw_text, contexts=contexts, language=language)
+    answer = disclaimer_mod.inject(resolved, version=disclaimer_version, language=language)
+
+    if cache:
+        await cache.set(key, answer)
+
+    yield StreamEvent(
+        type="final",
         text="",
-        answer=None,
-        citations=None,
-        disclaimer=None,
+        answer=answer,
+        citations=list(contexts.keys()),
+        disclaimer=disc,
         cached=False,
         degraded=False,
         declined=False,
