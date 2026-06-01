@@ -280,7 +280,12 @@ class OllamaEmbedder:
         return vectors[0]
 
     async def _embed(self, texts: list[str]) -> list[list[float]]:
-        """Call Ollama /api/embed and return vectors.
+        """Call Ollama /api/embed via a thread executor.
+
+        Uses a synchronous httpx.Client run in a thread executor to avoid
+        event-loop inheritance issues in Celery's prefork worker pool. The
+        async HTTP client fails when the forked worker inherits an event loop
+        from the Celery main process; the sync client does not.
 
         Args:
             texts: Texts to embed.
@@ -288,8 +293,23 @@ class OllamaEmbedder:
         Returns:
             list[list[float]]: One embedding vector per input text.
         """
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._embed_sync, texts)
+
+    def _embed_sync(self, texts: list[str]) -> list[list[float]]:
+        """Synchronous HTTP call to Ollama /api/embed.
+
+        Args:
+            texts: Texts to embed.
+
+        Returns:
+            list[list[float]]: One embedding vector per input text.
+
+        Raises:
+            httpx.HTTPError: On network or server failure.
+        """
+        with httpx.Client(timeout=self._timeout) as client:
+            resp = client.post(
                 f"{self._base_url}/api/embed",
                 json={"model": self._model, "input": texts},
             )
