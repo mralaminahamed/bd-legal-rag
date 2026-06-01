@@ -15,10 +15,15 @@ Author: Al Amin Ahamed.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, RedisDsn, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Repo root .env — four parents up from apps/api/app/config.py.
+# Silently skipped when absent (Docker injects vars via compose environment).
+_ENV_FILE = str(Path(__file__).parents[3] / ".env")
 
 ProviderName = Literal["anthropic", "openai", "ollama"]
 """Generation providers the factory can resolve (architecture §2.5)."""
@@ -91,7 +96,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="BDRAG_",
-        env_file=".env",
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
