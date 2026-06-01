@@ -13,20 +13,54 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    if (open) ref.current?.showModal();
-    else ref.current?.close();
+    const el = ref.current;
+    if (!el) return;
+    if (open) {
+      if (!el.open) el.showModal();
+      // Prevent body scroll while modal is open
+      document.body.style.overflow = "hidden";
+    } else {
+      if (el.open) el.close();
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
+
+  // Close on backdrop click (click lands on <dialog> itself, not its children)
+  function handleClick(e: React.MouseEvent<HTMLDialogElement>) {
+    if (e.target === e.currentTarget) onClose();
+  }
 
   return (
     <dialog
       ref={ref}
       onClose={onClose}
+      onClick={handleClick}
       className={cn(
-        "rounded-xl bg-card text-card-foreground p-6 shadow-2xl ring-1 ring-foreground/10 backdrop:bg-black/60 w-full max-w-md",
+        // Tailwind preflight zeroes out `margin: auto` — restore it for centering
+        "m-auto",
+        // Panel styles
+        "w-full max-w-md rounded-xl bg-card text-card-foreground p-6",
+        "shadow-2xl ring-1 ring-foreground/10",
+        // Backdrop
+        "backdrop:bg-black/60 backdrop:backdrop-blur-sm",
+        // Entrance animation (tw-animate-css)
+        "open:animate-in open:fade-in-0 open:zoom-in-95 open:duration-200",
         className,
       )}
     >
-      <h2 className="mb-4 text-base font-semibold text-foreground">{title}</h2>
+      <div className="flex items-start justify-between mb-4">
+        <h2 className="text-base font-semibold text-foreground leading-tight">{title}</h2>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="ml-4 shrink-0 -mt-0.5 -mr-1 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <i className="ti ti-x text-sm" />
+        </button>
+      </div>
       {children}
     </dialog>
   );
