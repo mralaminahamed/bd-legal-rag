@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getActs } from "@/api/query";
 import { Button } from "@/components/ui/button";
@@ -25,9 +26,32 @@ interface Message {
   status: "streaming" | "done" | "error";
 }
 
-interface Thread {
-  id: string;
-  messages: Message[];
+// ── Storage ───────────────────────────────────────────────────────────────────
+
+const STORAGE_PREFIX = "bd-legal-rag:thread:";
+
+function loadMessages(threadId: string): Message[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + threadId);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Message[];
+    // Reset any interrupted streaming messages to error state
+    return parsed.map((m) =>
+      m.status === "streaming" ? { ...m, status: "error", streamText: "" } : m,
+    );
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(threadId: string, messages: Message[]): void {
+  try {
+    // Only persist completed messages
+    const toSave = messages.filter((m) => m.status !== "streaming");
+    localStorage.setItem(STORAGE_PREFIX + threadId, JSON.stringify(toSave));
+  } catch {
+    // localStorage full — ignore
+  }
 }
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
@@ -64,27 +88,7 @@ const EXAMPLE_QUESTIONS = [
   "How many directors does a public company require?",
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function newThread(): Thread {
-  return { id: crypto.randomUUID(), messages: [] };
-}
-
-function newMessage(question: string): Message {
-  return {
-    id: crypto.randomUUID(),
-    question,
-    answer: "",
-    streamText: "",
-    disclaimer: null,
-    declined: false,
-    cached: false,
-    degraded: false,
-    status: "streaming",
-  };
-}
-
-// ── User bubble ───────────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function UserBubble({ question }: { question: string }) {
   return (
@@ -95,8 +99,6 @@ function UserBubble({ question }: { question: string }) {
     </div>
   );
 }
-
-// ── AI bubble ─────────────────────────────────────────────────────────────────
 
 function AiBubble({
   msg,
@@ -120,7 +122,6 @@ function AiBubble({
 
       <div className="flex-1 max-w-[88%] space-y-2.5">
         <div className="rounded-xl rounded-tl-sm ring-1 ring-foreground/10 bg-card p-4">
-          {/* Status badges */}
           {msg.status === "done" && (msg.declined || msg.degraded || msg.cached) && (
             <div className="flex items-center gap-1.5 mb-2">
               {msg.declined && (
@@ -141,7 +142,6 @@ function AiBubble({
             </div>
           )}
 
-          {/* Thinking skeleton (before first token) */}
           {msg.status === "streaming" && !msg.streamText && (
             <div className="space-y-2 py-0.5">
               <Skeleton className="h-3.5 w-3/4" />
@@ -150,7 +150,6 @@ function AiBubble({
             </div>
           )}
 
-          {/* Streaming text */}
           {msg.status === "streaming" && msg.streamText && (
             <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
               {msg.streamText}
@@ -158,7 +157,6 @@ function AiBubble({
             </div>
           )}
 
-          {/* Final answer */}
           {msg.status === "done" && (
             msg.declined ? (
               <div className="flex items-start gap-2.5">
@@ -178,7 +176,6 @@ function AiBubble({
           )}
         </div>
 
-        {/* Disclaimer */}
         {msg.status === "done" && msg.disclaimer && (
           <div className="rounded-xl border border-warning/30 bg-warning/8 px-4 py-3">
             <div className="flex items-start gap-2">
@@ -200,7 +197,12 @@ function AiBubble({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function PlaygroundPage() {
-  const [thread, setThread] = useState<Thread>(newThread);
+  const { threadId } = useParams<{ threadId: string }>();
+  const navigate = useNavigate();
+
+  const [messages, setMessages] = useState<Message[]>(() =>
+    threadId ? loadMessages(threadId) : [],
+  );
   const [question, setQuestion] = useState("");
   const [actSlug, setActSlug] = useState("");
   const [uiLang, setUiLang] = useState<UILang>("en");
@@ -212,23 +214,48 @@ export function PlaygroundPage() {
   const actsQ = useQuery({ queryKey: ["acts"], queryFn: getActs, staleTime: Infinity });
   const s = UI_STRINGS[uiLang];
 
+  // Load messages when threadId changes (navigating between threads)
+  useEffect(() => {
+    if (threadId) {
+      setMessages(loadMessages(threadId));
+      setIsStreaming(false);
+    }
+  }, [threadId]);
+
+  // Persist completed messages on change
+  useEffect(() => {
+    if (threadId && messages.length > 0) {
+      saveMessages(threadId, messages);
+    }
+  }, [threadId, messages]);
+
+  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [thread.messages.length, thread.messages[thread.messages.length - 1]?.streamText]);
+  }, [messages.length, messages[messages.length - 1]?.streamText]);
 
   const startNewThread = useCallback(() => {
-    setThread(newThread());
-    setQuestion("");
-    setIsStreaming(false);
-    setTimeout(() => textareaRef.current?.focus(), 50);
-  }, []);
+    navigate(`/playground/${crypto.randomUUID()}`);
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  }, [navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!question.trim() || isStreaming) return;
+    if (!question.trim() || isStreaming || !threadId) return;
 
-    const msg = newMessage(question.trim());
-    setThread((t) => ({ ...t, messages: [...t.messages, msg] }));
+    const msg: Message = {
+      id: crypto.randomUUID(),
+      question: question.trim(),
+      answer: "",
+      streamText: "",
+      disclaimer: null,
+      declined: false,
+      cached: false,
+      degraded: false,
+      status: "streaming",
+    };
+
+    setMessages((prev) => [...prev, msg]);
     setQuestion("");
     setIsStreaming(true);
 
@@ -244,12 +271,9 @@ export function PlaygroundPage() {
       });
 
       if (!resp.ok || !resp.body) {
-        setThread((t) => ({
-          ...t,
-          messages: t.messages.map((m) =>
-            m.id === msg.id ? { ...m, status: "error" } : m,
-          ),
-        }));
+        setMessages((prev) =>
+          prev.map((m) => (m.id === msg.id ? { ...m, status: "error" } : m)),
+        );
         return;
       }
 
@@ -272,18 +296,16 @@ export function PlaygroundPage() {
           try { event = JSON.parse(json) as StreamEvent; } catch { continue; }
 
           if (event.type === "token" && event.text) {
-            setThread((t) => ({
-              ...t,
-              messages: t.messages.map((m) =>
+            setMessages((prev) =>
+              prev.map((m) =>
                 m.id === msg.id
                   ? { ...m, streamText: m.streamText + (event.text ?? "") }
                   : m,
               ),
-            }));
+            );
           } else if (event.type === "final") {
-            setThread((t) => ({
-              ...t,
-              messages: t.messages.map((m) =>
+            setMessages((prev) =>
+              prev.map((m) =>
                 m.id === msg.id
                   ? {
                       ...m,
@@ -297,24 +319,22 @@ export function PlaygroundPage() {
                     }
                   : m,
               ),
-            }));
+            );
           }
         }
       }
     } catch {
-      setThread((t) => ({
-        ...t,
-        messages: t.messages.map((m) =>
-          m.id === msg.id ? { ...m, status: "error" } : m,
-        ),
-      }));
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msg.id ? { ...m, status: "error" } : m)),
+      );
     } finally {
       setIsStreaming(false);
       setTimeout(() => textareaRef.current?.focus(), 50);
     }
   }
 
-  const hasMessages = thread.messages.length > 0;
+  const hasMessages = messages.length > 0;
+  const shortId = threadId?.slice(0, 8) ?? "";
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-6rem)]">
@@ -324,28 +344,21 @@ export function PlaygroundPage() {
           <h1 className="text-lg font-semibold text-foreground">Playground</h1>
           <div className="flex items-center gap-2 mt-0.5">
             <p className="text-sm text-muted-foreground">Bilingual legal Q&amp;A</p>
-            {hasMessages && (
-              <>
-                <span className="text-border">·</span>
-                <span
-                  className="font-mono text-[11px] text-muted-foreground/50 select-all cursor-text"
-                  title="Thread ID"
-                >
-                  {thread.id.slice(0, 8)}
-                </span>
-              </>
-            )}
+            <span className="text-border">·</span>
+            <span
+              className="font-mono text-[11px] text-muted-foreground/50 select-all cursor-text"
+              title={`Thread: ${threadId ?? ""}`}
+            >
+              {shortId}
+            </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {hasMessages && (
-            <Button variant="outline" size="sm" onClick={startNewThread}>
-              <i className="ti ti-pencil-plus text-sm" />
-              {s.new_chat}
-            </Button>
-          )}
-          {/* Language toggle */}
+          <Button variant="outline" size="sm" onClick={startNewThread}>
+            <i className="ti ti-pencil-plus text-sm" />
+            {s.new_chat}
+          </Button>
           <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
             {(["en", "bn"] as UILang[]).map((lang) => (
               <button
@@ -365,10 +378,9 @@ export function PlaygroundPage() {
         </div>
       </div>
 
-      {/* Thread content */}
+      {/* Thread */}
       <div className="flex-1">
         {!hasMessages ? (
-          /* Empty state */
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
               <i className="ti ti-scale text-xl text-primary" />
@@ -394,9 +406,8 @@ export function PlaygroundPage() {
             </div>
           </div>
         ) : (
-          /* Messages */
           <div className="space-y-6 pb-4">
-            {thread.messages.map((msg) => (
+            {messages.map((msg) => (
               <div key={msg.id} className="space-y-3">
                 <UserBubble question={msg.question} />
                 <AiBubble
@@ -411,7 +422,7 @@ export function PlaygroundPage() {
         )}
       </div>
 
-      {/* Sticky input */}
+      {/* Input */}
       <div className="sticky bottom-0 pt-3 bg-background">
         <form onSubmit={(e) => void handleSubmit(e)}>
           <div className="rounded-xl ring-1 ring-foreground/10 bg-card focus-within:ring-ring/40 focus-within:ring-2 transition-all overflow-hidden">
@@ -443,11 +454,7 @@ export function PlaygroundPage() {
               </Select>
               <span className="text-[11px] text-muted-foreground ml-1">⌘↵ to send</span>
               <div className="ml-auto">
-                <Button
-                  type="submit"
-                  disabled={isStreaming || !question.trim()}
-                  size="sm"
-                >
+                <Button type="submit" disabled={isStreaming || !question.trim()} size="sm">
                   {isStreaming ? (
                     <><i className="ti ti-loader-2 animate-spin text-sm" />{s.sending}</>
                   ) : (
