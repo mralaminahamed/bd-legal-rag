@@ -100,7 +100,6 @@ class Act(Base):
         created_at: Row creation timestamp.
         provisions: Statutory tree rooted at this Act.
         ingestion_runs: Ingestion run history (per language).
-        queries: Queries scoped to this Act.
     """
 
     __tablename__ = "acts"
@@ -128,7 +127,6 @@ class Act(Base):
     ingestion_runs: Mapped[list[IngestionRun]] = relationship(
         back_populates="act", cascade="all, delete-orphan"
     )
-    queries: Mapped[list[Query]] = relationship(back_populates="act")
 
 
 class Provision(Base):
@@ -393,7 +391,6 @@ class Query(Base):
         latency_ms: End-to-end latency in milliseconds.
         ip_hash: Hashed/truncated caller IP (NFR-SC-2).
         created_at: Row creation timestamp.
-        act: Resolved Act, if scoped.
         feedback: Feedback entries bound to this query.
     """
 
@@ -440,11 +437,6 @@ class Query(Base):
     ip_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = _now()
 
-    act: Mapped[Act | None] = relationship(
-        back_populates="queries",
-        primaryjoin="foreign(Query.act_ids).any_() == Act.id",
-        viewonly=True,
-    )
     feedback: Mapped[list[Feedback]] = relationship(
         back_populates="query", cascade="all, delete-orphan"
     )
