@@ -114,6 +114,13 @@ export function PlaygroundPage() {
     }
   }
 
+  // Strip the disclaimer that disclaimer.inject() appended to answer — shown separately below.
+  const answerBody = result
+    ? result.disclaimer && result.answer.includes(result.disclaimer)
+      ? result.answer.slice(0, result.answer.lastIndexOf(result.disclaimer)).trimEnd()
+      : result.answer
+    : "";
+
   const hasContent = streaming || result;
 
   return (
@@ -172,7 +179,7 @@ export function PlaygroundPage() {
         )}
 
         {/* Streaming */}
-        {streaming && streamText && (
+        {streaming && (
           <div className="mb-4">
             <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-5">
               <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border">
@@ -185,11 +192,15 @@ export function PlaygroundPage() {
                   <span className="text-xs text-primary">{s.sending}</span>
                 </div>
               </div>
-              <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{streamText}</div>
-              <div className="mt-3 flex gap-2">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-3 w-16" />
-              </div>
+              {streamText ? (
+                <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{streamText}</div>
+              ) : (
+                <div className="space-y-2.5 py-1">
+                  <Skeleton className="h-3.5 w-3/4" />
+                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-3.5 w-1/2" />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -215,7 +226,7 @@ export function PlaygroundPage() {
                   <p className="text-sm text-muted-foreground">{s.declined}</p>
                 </div>
               ) : (
-                <Markdown>{result.answer}</Markdown>
+                <Markdown>{answerBody}</Markdown>
               )}
             </div>
 
@@ -225,7 +236,7 @@ export function PlaygroundPage() {
                   <i className="ti ti-info-circle text-warning text-base mt-0.5 shrink-0" />
                   <div>
                     <p className="text-xs font-semibold text-warning mb-1">{s.disclaimer_label}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{result.disclaimer}</p>
+                    <Markdown className="text-xs [&_p]:text-muted-foreground [&_p]:leading-relaxed [&_p]:mb-0">{result.disclaimer}</Markdown>
                   </div>
                 </div>
               </div>
