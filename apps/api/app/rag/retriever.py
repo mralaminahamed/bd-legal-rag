@@ -21,6 +21,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
+from app.db.models import EMBED_DIMENSIONS
 
 
 @dataclass(frozen=True)
@@ -206,14 +207,14 @@ async def vector_search(
             c.hierarchy_path,
             c.content,
             c.language,
-            1 - (c.embedding <=> cast(:emb AS vector(1024))) AS score
+            1 - (c.embedding <=> cast(:emb AS halfvec({EMBED_DIMENSIONS}))) AS score
         FROM chunks c
         JOIN provision_revisions pr ON pr.id = c.revision_id
         WHERE c.language = :lang
           {act_filter}
           AND pr.effective_from <= :aod
           AND (pr.effective_to IS NULL OR pr.effective_to >= :aod)
-        ORDER BY c.embedding <=> cast(:emb AS vector(1024))
+        ORDER BY c.embedding <=> cast(:emb AS halfvec({EMBED_DIMENSIONS}))
         LIMIT :n
         """
     )

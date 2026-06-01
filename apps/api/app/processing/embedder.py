@@ -1,12 +1,13 @@
-"""Cohere multilingual embedder with input_type discipline (ADR-002, FR-PR-3).
+"""Embedder implementations: Cohere multilingual and Ollama local.
 
-EmbedInputType is a StrEnum whose values match the Cohere API input_type parameter.
-Passing the wrong value silently halves retrieval quality, so CohereEmbedder.embed
-requires the caller to supply input_type explicitly — no default, no fallback. Any
-call that omits input_type is a type error caught by mypy --strict.
+CohereEmbedder enforces the input_type discriminator (search_document vs
+search_query) at the type level — mixing them silently halves retrieval
+quality (ADR-002). Use embed_documents at ingest time and embed_query at
+request time.
 
-The convenience wrappers embed_documents and embed_query bake in the correct value
-for their use case and are the intended callers for production code.
+OllamaEmbedder uses the Ollama /api/embed endpoint and supports the same
+interface without an input_type discriminator (not applicable to local models).
+Default model: qwen3-embedding:4b (2560 dims, multilingual, handles Bengali).
 
 Author: Al Amin Ahamed.
 """
@@ -16,8 +17,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from enum import StrEnum
+from typing import Protocol
 
 import cohere
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,36 @@ class EmbedInputType(StrEnum):
 
     SEARCH_DOCUMENT = "search_document"
     SEARCH_QUERY = "search_query"
+
+
+class Embedder(Protocol):
+    """Shared protocol for Cohere and Ollama embedders.
+
+    Both implementations expose embed_documents (ingest time) and embed_query
+    (request time) so call sites are provider-agnostic.
+    """
+
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed a list of document texts (ingest time).
+
+        Args:
+            texts: Document texts to embed.
+
+        Returns:
+            list[list[float]]: One embedding vector per input text.
+        """
+        ...
+
+    async def embed_query(self, text: str) -> list[float]:
+        """Embed a single query string (request time).
+
+        Args:
+            text: Query text.
+
+        Returns:
+            list[float]: Embedding vector.
+        """
+        ...
 
 
 class CohereEmbedder:
@@ -78,9 +111,6 @@ class CohereEmbedder:
         input_type is required with no default. Omitting it is a type error
         caught by mypy --strict (ADR-002). Use embed_documents or embed_query
         to avoid specifying it at the call site.
-
-        Texts are automatically batched at _batch_size; each batch is retried
-        up to _max_retries times on transient errors with exponential backoff.
 
         Args:
             texts: Non-empty list of texts to embed.
@@ -168,7 +198,7 @@ class CohereEmbedder:
             texts: Document texts to embed.
 
         Returns:
-            list[list[float]]: One 1024-dimensional vector per document.
+            list[list[float]]: One embedding vector per document.
         """
         return await self.embed(texts, EmbedInputType.SEARCH_DOCUMENT)
 
@@ -179,7 +209,90 @@ class CohereEmbedder:
             text: The query text.
 
         Returns:
-            list[float]: A 1024-dimensional embedding vector.
+            list[float]: An embedding vector.
         """
         vectors = await self.embed([text], EmbedInputType.SEARCH_QUERY)
         return vectors[0]
+
+
+class OllamaEmbedder:
+    """Local Ollama embedder using the /api/embed batch endpoint.
+
+    Supports the same interface as CohereEmbedder so call sites are
+    provider-agnostic. No input_type discriminator — local models do not
+    distinguish document vs query embeddings.
+
+    Default model: ``qwen3-embedding:4b`` (2560 dims, multilingual, handles
+    Bengali and English without any Cohere dependency).
+
+    Attributes:
+        _base_url: Ollama server base URL.
+        _model: Ollama embedding model name.
+        _timeout: Per-request HTTP timeout in seconds.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        *,
+        timeout: float = 120.0,
+    ) -> None:
+        """Initialise the Ollama embedder.
+
+        Args:
+            base_url: Ollama server base URL (e.g. "http://localhost:11434").
+            model: Ollama model name (e.g. "qwen3-embedding:4b").
+            timeout: Per-request HTTP timeout in seconds. Longer than Cohere
+                because local inference is CPU/GPU-bound.
+        """
+        self._base_url = base_url.rstrip("/")
+        self._model = model
+        self._timeout = timeout
+
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed document texts via Ollama /api/embed.
+
+        Args:
+            texts: Document texts to embed.
+
+        Returns:
+            list[list[float]]: One embedding vector per input text.
+
+        Raises:
+            httpx.HTTPError: On network or server failure.
+        """
+        return await self._embed(texts)
+
+    async def embed_query(self, text: str) -> list[float]:
+        """Embed a single query string via Ollama /api/embed.
+
+        Args:
+            text: Query text.
+
+        Returns:
+            list[float]: Embedding vector.
+
+        Raises:
+            httpx.HTTPError: On network or server failure.
+        """
+        vectors = await self._embed([text])
+        return vectors[0]
+
+    async def _embed(self, texts: list[str]) -> list[list[float]]:
+        """Call Ollama /api/embed and return vectors.
+
+        Args:
+            texts: Texts to embed.
+
+        Returns:
+            list[list[float]]: One embedding vector per input text.
+        """
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(
+                f"{self._base_url}/api/embed",
+                json={"model": self._model, "input": texts},
+            )
+            resp.raise_for_status()
+            data: dict[str, list[list[float]]] = resp.json()
+            return data["embeddings"]

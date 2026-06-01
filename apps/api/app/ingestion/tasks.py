@@ -343,17 +343,30 @@ async def chunk_and_embed_revisions(
     Returns:
         int: Total number of chunk rows written across all revisions.
     """
-    if not pending or settings.cohere_api_key is None:
+    if not pending:
         return 0
 
     from app.processing.chunker import ChunkSpec, chunk_provision
-    from app.processing.embedder import CohereEmbedder, EmbedInputType
+    from app.processing.embedder import CohereEmbedder, OllamaEmbedder
 
-    embedder = CohereEmbedder(
-        api_key=settings.cohere_api_key.get_secret_value(),
-        model=settings.embed_model,
-        batch_size=settings.embed_batch_size,
+    _cohere_key = (
+        settings.cohere_api_key.get_secret_value() if settings.cohere_api_key else ""
     )
+    if _cohere_key:
+        embedder: CohereEmbedder | OllamaEmbedder = CohereEmbedder(
+            api_key=_cohere_key,
+            model=settings.embed_model,
+            batch_size=settings.embed_batch_size,
+        )
+    else:
+        logger.info(
+            "Cohere key absent — using Ollama embedder (%s) for chunk embedding",
+            settings.ollama_embed_model,
+        )
+        embedder = OllamaEmbedder(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_embed_model,
+        )
 
     # --- Chunk all revisions; collect content strings for batch embedding ---
     revision_specs: list[tuple[_PendingRevision, list[ChunkSpec]]] = []
@@ -369,7 +382,7 @@ async def chunk_and_embed_revisions(
         return 0
 
     # --- Batch-embed all content strings in one Cohere call group ---
-    embeddings = await embedder.embed(all_contents, EmbedInputType.SEARCH_DOCUMENT)
+    embeddings = await embedder.embed_documents(all_contents)
 
     # --- Write chunks atomically, one transaction per revision ---
     embed_offset = 0

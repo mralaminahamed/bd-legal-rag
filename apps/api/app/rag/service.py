@@ -19,7 +19,7 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
-from app.processing.embedder import CohereEmbedder
+from app.processing.embedder import CohereEmbedder, OllamaEmbedder
 from app.rag.confidence import compute_confidence
 from app.rag.lang_router import detect_language
 from app.rag.reranker import RerankerUnavailable, rerank
@@ -126,16 +126,22 @@ async def retrieve(
     )
     embedding: list[float] | None = None
     if _cohere_key:
-        embedder = CohereEmbedder(
+        embedder: CohereEmbedder | OllamaEmbedder = CohereEmbedder(
             api_key=_cohere_key,
             model=cfg.embed_model,
             batch_size=cfg.embed_batch_size,
         )
         embedding = await embedder.embed_query(query)
     else:
-        logger.warning(
-            "BDRAG_COHERE_API_KEY not configured — falling back to lexical-only retrieval"
+        logger.info(
+            "BDRAG_COHERE_API_KEY not configured — using Ollama embedder (%s)",
+            cfg.ollama_embed_model,
         )
+        embedder = OllamaEmbedder(
+            base_url=cfg.ollama_base_url,
+            model=cfg.ollama_embed_model,
+        )
+        embedding = await embedder.embed_query(query)
 
     # --- 3. Primary hybrid retrieve ---
     candidates = await hybrid_retrieve(session, query, embedding, scope, search_lang, aod, cfg)

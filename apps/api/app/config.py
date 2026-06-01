@@ -57,14 +57,15 @@ class Settings(BaseSettings):
         anthropic_model: Claude model id used for generation.
         openai_model: OpenAI model id used for generation.
         ollama_model: Ollama model id used for generation.
+        ollama_embed_model: Ollama embedding model id (fallback when Cohere absent).
         llm_timeout_seconds: Per-call timeout for generation providers.
         llm_max_retries: Bounded retry count for transient provider failures.
         llm_max_output_tokens: Max completion tokens requested per generation.
         cost_per_1k_input_usd: Input token price for the cost circuit breaker.
         cost_per_1k_output_usd: Output token price for the cost circuit breaker.
         cost_ceiling_usd_per_request: Per-request projected-cost ceiling (FR-GN-5).
-        embed_model: Cohere embedding model (embed-multilingual-v3.0, ADR-002).
-        embed_dimensions: Embedding vector width (1024 for the multilingual model).
+        embed_model: Cohere embedding model (embed-multilingual-v3.0) or Ollama fallback.
+        embed_dimensions: Embedding vector width (1024 Cohere; 2560 qwen3-embedding:4b).
         embed_batch_size: Maximum texts per Cohere embedding call.
         rerank_model: Cohere reranker model (rerank-multilingual-v3.0, ADR-003).
         bdlaws_base_url: Base URL of the bdlaws statutory portal.
@@ -125,6 +126,7 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
     openai_model: str = "gpt-4o-mini"
     ollama_model: str = "llama3.2"
+    ollama_embed_model: str = "qwen3-embedding:4b"
     llm_timeout_seconds: float = Field(default=60.0, gt=0.0)
     llm_max_retries: int = Field(default=3, ge=0)
     llm_max_output_tokens: int = Field(default=2048, ge=1)
@@ -137,7 +139,7 @@ class Settings(BaseSettings):
     # The input_type discriminator (search_document vs search_query) is enforced
     # at the type level in the embedder; this setting names the model only.
     embed_model: str = "embed-multilingual-v3.0"
-    embed_dimensions: int = Field(default=1024, ge=1, le=4096)
+    embed_dimensions: int = Field(default=2560, ge=1, le=4096)
     embed_batch_size: int = Field(default=96, ge=1, le=96)
 
     # --- Reranking (§2.4, ADR-003) ---

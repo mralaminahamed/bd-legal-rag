@@ -20,7 +20,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import HALFVEC
 from sqlalchemy import (
     CheckConstraint,
     Computed,
@@ -38,11 +38,10 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-# Embedding width is fixed at 1024 for embed-multilingual-v3.0 (ADR-002).
-# The vector(1024) type sits comfortably below pgvector's HNSW limit so no
-# halfvec storage is needed; the HNSW operator class is vector_cosine_ops.
-EMBED_DIMENSIONS = 1024
-HNSW_OPS = "vector_cosine_ops"
+# Embedding width is fixed at 2560 for embed-multilingual-v3.0 (ADR-002).
+# The HNSW operator class is vector_cosine_ops.
+EMBED_DIMENSIONS = 2560
+HNSW_OPS = "halfvec_cosine_ops"
 
 # Allowed enumerations — kept identical to the DDL CHECK constraints.
 PROVISION_KINDS = ("part", "chapter", "section", "subsection", "clause")
@@ -307,7 +306,7 @@ class Chunk(Base):
         nullable=False,
     )
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(Vector(EMBED_DIMENSIONS), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(HALFVEC(EMBED_DIMENSIONS), nullable=False)
     meta: Mapped[dict[str, Any]] = mapped_column(
         "metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
