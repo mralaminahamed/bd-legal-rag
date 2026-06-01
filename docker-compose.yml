@@ -23,6 +23,9 @@ x-app-env: &app-env
   BDRAG_OPENAI_MODEL: ${BDRAG_OPENAI_MODEL:-gpt-4o-mini}
   # Cohere is the required embedding and reranking provider (ADR-002, ADR-003).
   BDRAG_COHERE_API_KEY: ${BDRAG_COHERE_API_KEY:-}
+  # Decline gate — must be << max RRF score (~0.025) so lexical-only retrieval
+  # is not always rejected. Only queries returning truly empty results decline.
+  BDRAG_DECLINE_RECALL_FLOOR: ${BDRAG_DECLINE_RECALL_FLOOR:-0.001}
   BDRAG_ANTHROPIC_API_KEY: ${BDRAG_ANTHROPIC_API_KEY:-}
   BDRAG_OPENAI_API_KEY: ${BDRAG_OPENAI_API_KEY:-}
 
