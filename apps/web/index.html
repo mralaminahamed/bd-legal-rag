@@ -1,14 +1,41 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bangladesh Legal RAG</title>
-</head>
-<body>
-  <!-- Bilingual search-style web interface (apps/web).
-       Author: Al Amin Ahamed. -->
-  <div id="app"></div>
-  <script src="app.js"></script>
-</body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+        <title>Bangladesh Legal RAG</title>
+        <meta
+            name="description"
+            content="Operator console for the Bangladesh Legal RAG: manage plugins, trigger ingestion, inspect metrics, and test grounded answers."
+        />
+        <meta name="author" content="Al Amin Ahamed" />
+        <!-- Admin surface: keep out of search engines. -->
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#6366f1" />
+
+        <!-- Icons -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link
+            rel="apple-touch-icon"
+            sizes="180x180"
+            href="/apple-touch-icon.png"
+        />
+        <link rel="manifest" href="/site.webmanifest" />
+
+        <!-- Open Graph (for internal link previews) -->
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Bangladesh Legal RAG" />
+        <meta
+            property="og:description"
+            content="Operator console for the Bangladesh Legal RAG."
+        />
+        <meta property="og:site_name" content="Bangladesh Legal RAG" />
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/main.tsx"></script>
+    </body>
 </html>
