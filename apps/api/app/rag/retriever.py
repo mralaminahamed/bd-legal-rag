@@ -270,6 +270,12 @@ async def lexical_search(
         act_filter = "AND c.act_id = ANY(cast(:act_ids AS uuid[]))"
         params["act_ids"] = "{" + ",".join(str(a) for a in act_ids) + "}"
 
+    # The simple config has no stopword removal, so long queries that include
+    # common words ("what", "is", "the") must match ALL tokens in the document.
+    # To avoid missing hits when key terms appear only in hierarchy_path (e.g.
+    # "Labour Act" or "Weekly Holiday"), we broaden the match with an OR that
+    # checks hierarchy_path too.  This is an unindexed scan but the corpus is
+    # small and this only runs when the indexed content_tsv search returns nothing.
     sql = text(
         f"""
         SELECT
@@ -280,12 +286,20 @@ async def lexical_search(
             c.hierarchy_path,
             c.content,
             c.language,
-            ts_rank_cd(c.content_tsv, websearch_to_tsquery('simple', :q)) AS score
+            GREATEST(
+                ts_rank_cd(c.content_tsv, websearch_to_tsquery('simple', :q)),
+                ts_rank_cd(to_tsvector('simple', c.hierarchy_path),
+                           websearch_to_tsquery('simple', :q))
+            ) AS score
         FROM chunks c
         JOIN provision_revisions pr ON pr.id = c.revision_id
         WHERE c.language = :lang
           {act_filter}
-          AND c.content_tsv @@ websearch_to_tsquery('simple', :q)
+          AND (
+            c.content_tsv @@ websearch_to_tsquery('simple', :q)
+            OR to_tsvector('simple', c.hierarchy_path)
+               @@ websearch_to_tsquery('simple', :q)
+          )
           AND pr.effective_from <= :aod
           AND (pr.effective_to IS NULL OR pr.effective_to >= :aod)
         ORDER BY score DESC
