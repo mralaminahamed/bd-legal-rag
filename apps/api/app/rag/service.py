@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.processing.embedder import CohereEmbedder
+from app.rag.confidence import compute_confidence
 from app.rag.lang_router import detect_language
 from app.rag.reranker import RerankerUnavailable, rerank
 from app.rag.retriever import RetrievedChunk, hybrid_retrieve
@@ -57,13 +58,7 @@ def _tier(
     cross_lingual: bool,
     settings: Settings,
 ) -> Literal["HIGH", "MEDIUM", "LOW"]:
-    """Compute confidence tier from rerank results (architecture §2.5).
-
-    | Tier   | Conditions |
-    |--------|------------|
-    | HIGH   | Reranked, not cross-lingual, top ≥ t_high, ≥ 2 chunks above t_keep, single Act. |
-    | MEDIUM | Reranked, not cross-lingual, top ≥ t_medium (and not HIGH). |
-    | LOW    | Reranker unavailable, cross-lingual fallback, or top < t_medium. |
+    """Delegate to :func:`app.rag.confidence.compute_confidence`.
 
     Args:
         chunks: Reranked (or unreranked) chunks.
@@ -74,18 +69,9 @@ def _tier(
     Returns:
         Literal["HIGH", "MEDIUM", "LOW"]: The confidence tier.
     """
-    if not reranked or cross_lingual or not chunks:
-        return "LOW"
-
-    top = chunks[0].rerank_score or 0.0
-    if top < settings.confidence_t_medium:
-        return "LOW"
-    if top >= settings.confidence_t_high:
-        above_keep = sum(1 for c in chunks if (c.rerank_score or 0.0) >= settings.confidence_t_keep)
-        top3_acts = len({c.act_id for c in chunks[:3]})
-        if above_keep >= 2 and top3_acts == 1:
-            return "HIGH"
-    return "MEDIUM"
+    return compute_confidence(
+        chunks, reranked=reranked, cross_lingual=cross_lingual, settings=settings
+    )
 
 
 async def retrieve(
