@@ -1,98 +1,170 @@
+/* BD Legal RAG — Admin Console. Design system: Geist font, Tabler icons, navy sidebar. */
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "@fontsource-variable/geist";
 
-@theme {
-  /* Typography */
-  --font-sans: "Geist Variable", system-ui, sans-serif;
-
-  /* Navigation sidebar */
-  --color-nav: #111827;
-  --color-nav-border: rgba(255, 255, 255, 0.07);
-
-  /* Brand / accent — deep institutional blue */
-  --color-accent: #1d4ed8;
-  --color-accent-hover: #1e40af;
-  --color-accent-light: #eff6ff;
-  --color-accent-border: #bfdbfe;
-  --color-accent-text: #93c5fd;
-
-  /* Content surfaces */
-  --color-page: #eef2fa;
-  --color-surface: #ffffff;
-  --color-border: #e2e8f0;
-
-  /* Text scale */
-  --color-text-1: #0f172a;
-  --color-text-2: #374151;
-  --color-text-3: #64748b;
-  --color-text-4: #94a3b8;
-  --color-text-5: #cbd5e1;
-
-  /* Semantic status */
-  --color-score-green: #059669;
-  --color-score-green-bg: #ecfdf5;
-  --color-score-green-border: #a7f3d0;
-  --color-score-blue: #2563eb;
-  --color-score-blue-bg: #eff6ff;
-  --color-score-blue-border: #bfdbfe;
-  --color-score-amber: #d97706;
-  --color-score-amber-bg: #fffbeb;
-  --color-score-amber-border: #fde68a;
-  --color-score-red: #dc2626;
-  --color-score-red-bg: #fef2f2;
-  --color-score-red-border: #fecaca;
-}
-
-/* Enable class-based dark mode */
 @custom-variant dark (&:where(.dark, .dark *));
 
-.dark {
-  --color-page: #0f172a;
-  --color-surface: #1e293b;
-  --color-border: #334155;
-  --color-text-1: #f1f5f9;
-  --color-text-2: #e2e8f0;
-  --color-text-3: #94a3b8;
-  --color-text-4: #64748b;
-  --color-text-5: #475569;
-  --color-accent-light: rgba(29, 78, 216, 0.12);
-  --color-accent-border: #1d4ed8;
-  --color-score-green-bg: rgba(5, 150, 105, 0.12);
-  --color-score-green-border: rgba(167, 243, 208, 0.25);
-  --color-score-amber-bg: rgba(217, 119, 6, 0.12);
-  --color-score-amber-border: rgba(253, 230, 138, 0.25);
-  --color-score-red-bg: rgba(220, 38, 38, 0.12);
-  --color-score-red-border: rgba(254, 202, 202, 0.25);
-  --color-score-blue-bg: rgba(37, 99, 235, 0.12);
-  --color-score-blue-border: rgba(191, 219, 254, 0.25);
+@theme inline {
+  --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Variable", ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Token bridge → CSS vars below */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Nav (dark sidebar) */
+  --color-nav: var(--nav);
+  --color-nav-border: var(--nav-border);
+  --color-nav-text: #4b6284;
+  --color-nav-text-active: #93c5fd;
+  --color-nav-active-bg: rgba(99, 102, 241, 0.14);
+
+  /* Text scale */
+  --color-text-1: var(--foreground);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-text-4: var(--text-4);
 }
 
+/* ── Light mode ─────────────────────────────────────────────────────── */
+:root {
+  --radius: 0.625rem;
+
+  --background: #f1f5fb;
+  --foreground: #0f172a;
+  --text-2: #374151;
+  --text-3: #64748b;
+  --text-4: #94a3b8;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  /* Indigo primary */
+  --primary: oklch(0.53 0.22 279);
+  --primary-foreground: #ffffff;
+
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  --accent: #eef2ff;
+  --accent-foreground: #4338ca;
+
+  --destructive: oklch(0.58 0.22 27);
+  --success: #059669;
+  --warning: #d97706;
+
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: oklch(0.53 0.22 279);
+
+  /* Dark sidebar stays consistent regardless of page theme */
+  --nav: #1a2744;
+  --nav-border: rgba(255, 255, 255, 0.07);
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────── */
+.dark {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --text-2: #e2e8f0;
+  --text-3: #94a3b8;
+  --text-4: #64748b;
+
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+
+  --primary: oklch(0.68 0.16 277);
+  --primary-foreground: #0f172a;
+
+  --secondary: #1e293b;
+  --secondary-foreground: #f1f5f9;
+
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+
+  --accent: #1e2d4f;
+  --accent-foreground: #818cf8;
+
+  --destructive: oklch(0.7 0.19 22);
+  --success: #10b981;
+  --warning: #f59e0b;
+
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: oklch(0.68 0.16 277);
+
+  --nav: #0f172a;
+  --nav-border: rgba(255, 255, 255, 0.07);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────── */
 @layer base {
   * {
+    @apply border-border outline-ring/50;
     box-sizing: border-box;
   }
 
   html,
-  body {
-    font-family: var(--font-sans);
-    background-color: var(--color-page);
-    color: var(--color-text-1);
-    -webkit-font-smoothing: antialiased;
+  body,
+  #root {
+    height: 100%;
   }
 
-  /* Scrollbar styling */
-  ::-webkit-scrollbar {
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    font-family: var(--font-sans);
+  }
+
+  /* Thin, theme-aware scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  *::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-  ::-webkit-scrollbar-track {
+  *::-webkit-scrollbar-track {
     background: transparent;
   }
-  ::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 3px;
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
   }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-text-4);
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--text-3);
   }
 }

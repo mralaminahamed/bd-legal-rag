@@ -14,11 +14,7 @@ interface SourcesRowProps {
 
 function RunBadge({ status }: { status: string }) {
   const v =
-    status === "succeeded"
-      ? "success"
-      : status === "failed"
-      ? "destructive"
-      : "secondary";
+    status === "succeeded" ? "success" : status === "failed" ? "destructive" : "secondary";
   return <Badge variant={v as "success" | "destructive" | "secondary"}>{status}</Badge>;
 }
 
@@ -32,9 +28,7 @@ export function SourcesRow({ act }: SourcesRowProps) {
       toast.success(`Triggered ${data.task_ids.length} tasks for ${act.short_name}`);
       void qc.invalidateQueries({ queryKey: ["admin", "acts"] });
     },
-    onError: () => {
-      toast.error("Failed to trigger ingestion");
-    },
+    onError: () => toast.error("Failed to trigger ingestion"),
   });
 
   return (
@@ -42,7 +36,7 @@ export function SourcesRow({ act }: SourcesRowProps) {
       <tr
         className={cn(
           "border-b border-border cursor-pointer transition-colors",
-          expanded ? "bg-page/40" : "hover:bg-page/60"
+          expanded ? "bg-muted/20" : "hover:bg-muted/30",
         )}
         onClick={() => setExpanded((e) => !e)}
       >
@@ -50,18 +44,18 @@ export function SourcesRow({ act }: SourcesRowProps) {
           <div className="flex items-center gap-2">
             <i
               className={cn(
-                "ti text-sm text-text-4 transition-transform shrink-0",
-                expanded ? "ti-chevron-down" : "ti-chevron-right"
+                "ti text-sm text-muted-foreground transition-transform shrink-0",
+                expanded ? "ti-chevron-down" : "ti-chevron-right",
               )}
             />
             <div>
-              <div className="text-sm font-semibold text-text-1">{act.short_name}</div>
-              <div className="text-[11px] text-text-4 truncate max-w-xs">{act.full_name_en}</div>
+              <div className="text-sm font-medium text-foreground">{act.short_name}</div>
+              <div className="text-[11px] text-muted-foreground truncate max-w-xs">{act.full_name_en}</div>
             </div>
           </div>
         </td>
         <td className="px-3 py-3">
-          <span className="text-sm text-text-3 tabular-nums">{act.act_year}</span>
+          <span className="text-sm text-muted-foreground tabular-nums">{act.act_year}</span>
         </td>
         <td className="px-3 py-3">
           <Badge variant={act.status === "in_force" ? "success" : "secondary"}>
@@ -69,39 +63,21 @@ export function SourcesRow({ act }: SourcesRowProps) {
           </Badge>
         </td>
         <td className="px-3 py-3">
-          {act.last_run_bn ? (
-            <RunBadge status={act.last_run_bn.status} />
-          ) : (
-            <span className="text-text-4 text-xs">never</span>
-          )}
+          {act.last_run_bn ? <RunBadge status={act.last_run_bn.status} /> : <span className="text-muted-foreground text-xs">never</span>}
         </td>
         <td className="px-3 py-3">
-          {act.last_run_en ? (
-            <RunBadge status={act.last_run_en.status} />
-          ) : (
-            <span className="text-text-4 text-xs">never</span>
-          )}
+          {act.last_run_en ? <RunBadge status={act.last_run_en.status} /> : <span className="text-muted-foreground text-xs">never</span>}
         </td>
-        <td
-          className="px-3 py-3"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => ingest.mutate()}
-            disabled={ingest.isPending}
-          >
-            <i
-              className={`ti ti-refresh text-sm ${ingest.isPending ? "animate-spin" : ""}`}
-            />
+        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="secondary" onClick={() => ingest.mutate()} disabled={ingest.isPending}>
+            <i className={`ti ti-refresh text-sm ${ingest.isPending ? "animate-spin" : ""}`} />
             Ingest
           </Button>
         </td>
       </tr>
 
       {expanded && (
-        <tr className="border-b border-border bg-page/30">
+        <tr className="border-b border-border bg-muted/10">
           <td colSpan={6} className="px-6 py-4">
             <div className="grid grid-cols-2 gap-6">
               {[
@@ -109,32 +85,32 @@ export function SourcesRow({ act }: SourcesRowProps) {
                 { lang: "English (EN)", run: act.last_run_en },
               ].map(({ lang, run }) => (
                 <div key={lang}>
-                  <div className="text-[12px] font-semibold text-text-3 mb-2 flex items-center gap-1.5">
-                    <i className="ti ti-language text-sm text-accent" />
+                  <div className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <i className="ti ti-language text-sm text-primary" />
                     {lang}
                   </div>
                   {run ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <span className="text-text-4">Status:</span>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">Status:</span>
                         <RunBadge status={run.status} />
                       </div>
-                      <div className="text-[12px] text-text-4">
-                        Started: <span className="text-text-2">{formatDateTime(run.started_at)}</span>
+                      <div className="text-muted-foreground">
+                        Started: <span className="text-foreground">{formatDateTime(run.started_at)}</span>
                       </div>
-                      <div className="text-[12px] text-text-4">
-                        Provisions: <span className="text-text-2 tabular-nums">{run.provisions_processed}</span>
+                      <div className="text-muted-foreground">
+                        Provisions: <span className="text-foreground tabular-nums">{run.provisions_processed}</span>
                         {" · "}
-                        Chunks: <span className="text-text-2 tabular-nums">{run.chunks_created}</span>
+                        Chunks: <span className="text-foreground tabular-nums">{run.chunks_created}</span>
                       </div>
                       {run.error && (
-                        <div className="text-[12px] text-score-red mt-1 bg-score-red-bg px-2 py-1 rounded">
+                        <div className="text-destructive mt-1 bg-destructive/10 px-2 py-1 rounded-lg">
                           {run.error}
                         </div>
                       )}
                     </div>
                   ) : (
-                    <span className="text-[12px] text-text-4 italic">No runs yet</span>
+                    <span className="text-xs text-muted-foreground italic">No runs yet</span>
                   )}
                 </div>
               ))}

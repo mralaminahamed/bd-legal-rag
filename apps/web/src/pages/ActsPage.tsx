@@ -39,19 +39,19 @@ export function ActsPage() {
   const filtered = (actsQ.data ?? []).filter(
     (a) =>
       a.short_name.toLowerCase().includes(search.toLowerCase()) ||
-      a.full_name_en.toLowerCase().includes(search.toLowerCase())
+      a.full_name_en.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
-    <div className="flex flex-col min-h-0">
+    <div className="space-y-5">
       <PageHeader
         title="Acts Registry"
-        description="Statutory corpus — ingestion state per language"
-        action={
-          <div className="flex items-center gap-2">
+        description="Statutory corpus — ingestion state per language."
+        actions={
+          <>
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => setShowRegister(true)}
             >
               <i className="ti ti-plus text-sm" />
@@ -62,71 +62,64 @@ export function ActsPage() {
               onClick={() => ingestAll.mutate()}
               disabled={ingestAll.isPending}
             >
-              <i
-                className={`ti ti-refresh text-sm ${ingestAll.isPending ? "animate-spin" : ""}`}
-              />
+              <i className={`ti ti-refresh text-sm ${ingestAll.isPending ? "animate-spin" : ""}`} />
               Ingest all
             </Button>
-          </div>
+          </>
         }
       />
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-4">
-        <div className="relative max-w-sm">
-          <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-text-4 text-sm pointer-events-none" />
-          <Input
-            placeholder="Search acts…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-
-        <div className="rounded-[10px] border border-border overflow-hidden bg-surface">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Act</TableHead>
-                <TableHead>Year</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>BN</TableHead>
-                <TableHead>EN</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {actsQ.isLoading &&
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <td colSpan={6} className="px-3 py-2.5">
-                      <Skeleton className="h-5 w-full" />
-                    </td>
-                  </TableRow>
-                ))}
-              {filtered.map((act) => (
-                <SourcesRow key={act.id} act={act} />
-              ))}
-              {!actsQ.isLoading && filtered.length === 0 && (
-                <TableRow>
-                  <td colSpan={6} className="px-3 py-12 text-center">
-                    <div className="flex flex-col items-center gap-2 text-text-4">
-                      <i className="ti ti-books-off text-2xl" />
-                      <span className="text-sm">
-                        {search ? "No acts match your search" : "No acts registered"}
-                      </span>
-                    </div>
-                  </td>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+      <div className="relative max-w-sm">
+        <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none" />
+        <Input
+          placeholder="Search acts…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-8"
+        />
       </div>
 
-      <RegisterActModal
-        open={showRegister}
-        onClose={() => setShowRegister(false)}
-      />
+      <div className="rounded-xl ring-1 ring-foreground/10 overflow-hidden bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Act</TableHead>
+              <TableHead>Year</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>BN</TableHead>
+              <TableHead>EN</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {actsQ.isLoading &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <td colSpan={6} className="px-3 py-2.5">
+                    <Skeleton className="h-5 w-full" />
+                  </td>
+                </TableRow>
+              ))}
+            {filtered.map((act) => (
+              <SourcesRow key={act.id} act={act} />
+            ))}
+            {!actsQ.isLoading && filtered.length === 0 && (
+              <TableRow>
+                <td colSpan={6} className="px-3 py-12 text-center">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                    <i className="ti ti-books-off text-2xl" />
+                    <span className="text-sm">
+                      {search ? "No acts match your search" : "No acts registered"}
+                    </span>
+                  </div>
+                </td>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <RegisterActModal open={showRegister} onClose={() => setShowRegister(false)} />
     </div>
   );
 }

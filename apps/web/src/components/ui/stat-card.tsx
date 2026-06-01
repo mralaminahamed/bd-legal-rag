@@ -1,30 +1,39 @@
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  sub?: string;
-  icon?: string;
-  iconClass?: string;
-}
-
 export function StatCard({
-  title,
+  icon,
+  label,
   value,
-  sub,
-  icon = "ti-chart-bar",
-  iconClass = "text-accent",
-}: StatCardProps) {
+  hint,
+  tone = "default",
+  children,
+}: {
+  icon: string;
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  tone?: "default" | "success" | "warning" | "destructive";
+  children?: ReactNode;
+}) {
+  const toneClass = {
+    default: "text-primary",
+    success: "text-success",
+    warning: "text-warning",
+    destructive: "text-destructive",
+  }[tone];
+
   return (
-    <div className="bg-surface border border-border rounded-[10px] p-4">
+    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <div className="flex items-start justify-between mb-2">
-        <span className="text-[11px] font-semibold text-text-3 uppercase tracking-wide leading-tight">
-          {title}
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+          {label}
         </span>
-        <i className={cn(`ti ${icon} text-base`, iconClass)} />
+        <i className={cn(`ti ${icon} text-base`, toneClass)} />
       </div>
-      <p className="text-2xl font-bold text-text-1 leading-tight tabular-nums">{value}</p>
-      {sub && <p className="text-[11px] text-text-4 mt-1">{sub}</p>}
+      <p className="text-2xl font-bold text-foreground leading-tight tabular-nums">{value}</p>
+      {hint && <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>}
+      {children}
     </div>
   );
 }

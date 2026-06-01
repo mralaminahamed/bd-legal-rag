@@ -2,60 +2,26 @@ import { useQuery } from "@tanstack/react-query";
 import { getMetrics, getRecentQueries, getHealth } from "@/api/admin";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatPercent, formatMs, formatDateTime, truncate } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
-function ServiceDot({ status }: { status: string | undefined }) {
-  if (!status) return <span className="w-2 h-2 rounded-full bg-text-5 animate-pulse" />;
-  return (
-    <span
-      className={cn(
-        "w-2 h-2 rounded-full",
-        status === "ok" ? "bg-score-green" : "bg-score-red"
-      )}
-    />
-  );
-}
-
-function HealthRow({
-  label,
-  status,
-}: {
-  label: string;
-  status: string | undefined;
-}) {
+function HealthItem({ icon, label, value }: { icon: string; label: string; value: string }) {
+  const ok = value === "ok";
   return (
     <div className="flex items-center gap-2">
-      <ServiceDot status={status} />
-      <span className="text-[12px] text-text-3">{label}</span>
-      {status && (
-        <span
-          className={cn(
-            "text-[11px] font-medium",
-            status === "ok" ? "text-score-green" : "text-score-red"
-          )}
-        >
-          {status}
-        </span>
-      )}
+      <i className={`ti ${icon} text-base ${ok ? "text-success" : "text-warning"}`} />
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <Badge variant={ok ? "success" : "warning"}>{value}</Badge>
     </div>
   );
 }
 
 function ConfidenceBadge({ tier }: { tier: string | null }) {
-  if (!tier) return <span className="text-text-4 text-xs">—</span>;
-  const v =
-    tier === "HIGH" ? "success" : tier === "MEDIUM" ? "warning" : "destructive";
+  if (!tier) return <span className="text-muted-foreground text-xs">—</span>;
+  const v = tier === "HIGH" ? "success" : tier === "MEDIUM" ? "warning" : "destructive";
   return <Badge variant={v as "success" | "warning" | "destructive"}>{tier}</Badge>;
 }
 
@@ -81,180 +47,202 @@ export function DashboardPage() {
   const h = healthQ.data;
 
   return (
-    <div className="flex flex-col min-h-0">
+    <div className="space-y-5">
       <PageHeader
         title="Dashboard"
-        description="Query quality and service health — last 24 hours"
+        description="Service health, query metrics, and corpus overview."
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void metricsQ.refetch();
+              void healthQ.refetch();
+              void queriesQ.refetch();
+            }}
+          >
+            <i className="ti ti-refresh text-sm" /> Refresh
+          </Button>
+        }
       />
 
-      <div className="flex-1 overflow-y-auto p-5">
-        <div className="space-y-5">
+      {/* KPI row */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {!m ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[88px]" />)
+        ) : (
+          <>
+            <StatCard icon="ti-messages" label="Queries (24h)" value={m.total_queries} />
+            <StatCard
+              icon="ti-ban"
+              label="Decline rate"
+              value={formatPercent(m.decline_rate)}
+              hint="advice-seeking"
+              tone={m.decline_rate > 0.3 ? "warning" : "default"}
+            />
+            <StatCard
+              icon="ti-bolt"
+              label="Cache hit"
+              value={formatPercent(m.cache_hit_rate)}
+              tone="success"
+            />
+            <StatCard
+              icon="ti-clock"
+              label="p95 latency"
+              value={formatMs(m.p95_latency_ms)}
+            />
+          </>
+        )}
+      </div>
 
-          {/* Service health banner */}
-          <div className="bg-surface border border-border rounded-[10px] px-5 py-3.5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[12px] font-semibold text-text-3 uppercase tracking-wide">
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          {/* Health */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <i className="ti ti-activity text-sm text-primary" />
                 Service health
-              </h2>
-              {h && (
-                <span className="text-[11px] text-text-4">auto-refreshes every 30s</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {healthQ.isLoading ? (
+                <Skeleton className="h-6 w-72" />
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+                  <HealthItem icon="ti-wifi" label="API" value={h?.status ?? "—"} />
+                  <HealthItem icon="ti-database" label="Database" value={h?.database ?? "—"} />
+                  <HealthItem icon="ti-server" label="Redis" value={h?.redis ?? "—"} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Environment</span>
+                    <Badge variant="secondary">{h?.environment ?? "development"}</Badge>
+                  </div>
+                </div>
               )}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
-              <HealthRow label="API" status={h?.status} />
-              <HealthRow label="Database" status={h?.database} />
-              <HealthRow label="Redis" status={h?.redis} />
-              {!h && (
-                <Skeleton className="h-5 w-48" />
-              )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* KPI grid */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {m ? (
-              <>
-                <StatCard
-                  title="Queries (24h)"
-                  value={m.total_queries}
-                  icon="ti-messages"
-                  iconClass="text-accent"
-                />
-                <StatCard
-                  title="Decline rate"
-                  value={formatPercent(m.decline_rate)}
-                  sub="advice-seeking"
-                  icon="ti-ban"
-                  iconClass="text-score-red"
-                />
-                <StatCard
-                  title="Cache hit rate"
-                  value={formatPercent(m.cache_hit_rate)}
-                  icon="ti-bolt"
-                  iconClass="text-score-amber"
-                />
-                <StatCard
-                  title="p95 latency"
-                  value={formatMs(m.p95_latency_ms)}
-                  icon="ti-clock"
-                  iconClass="text-score-blue"
-                />
-                <StatCard
-                  title="Daily spend"
-                  value={`$${m.daily_spend_usd.toFixed(4)}`}
-                  sub="estimated USD"
-                  icon="ti-coin"
-                  iconClass="text-score-amber"
-                />
-                <StatCard
-                  title="Degraded rate"
-                  value={formatPercent(m.degraded_rate)}
-                  sub="fail-open"
-                  icon="ti-alert-triangle"
-                  iconClass="text-score-amber"
-                />
-                <StatCard
-                  title="HIGH confidence"
-                  value={m.confidence_breakdown.HIGH}
-                  icon="ti-shield-check"
-                  iconClass="text-score-green"
-                />
-                <StatCard
-                  title="Feedback"
-                  value={m.feedback_count}
-                  icon="ti-thumb-up"
-                  iconClass="text-accent"
-                />
-              </>
-            ) : (
-              Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-[88px]" />
-              ))
-            )}
-          </div>
+          {/* Quality & cost */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <i className="ti ti-chart-dots text-sm text-primary" />
+                Quality &amp; cost
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!m ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-[88px]" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <StatCard
+                    icon="ti-alert-triangle"
+                    label="Degraded"
+                    value={formatPercent(m.degraded_rate)}
+                    tone={m.degraded_rate > 0 ? "warning" : "success"}
+                  />
+                  <StatCard
+                    icon="ti-shield-check"
+                    label="HIGH conf."
+                    value={m.confidence_breakdown.HIGH}
+                    tone="success"
+                  />
+                  <StatCard
+                    icon="ti-coin"
+                    label="Daily spend"
+                    value={`$${m.daily_spend_usd.toFixed(4)}`}
+                    hint="estimated USD"
+                  />
+                  <StatCard
+                    icon="ti-thumb-up"
+                    label="Feedback"
+                    value={m.feedback_count}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Recent queries */}
-          <div className="bg-surface border border-border rounded-[10px] overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-border flex items-center gap-2">
-              <i className="ti ti-history text-sm text-accent" />
-              <h2 className="text-sm font-bold text-text-1">Recent queries</h2>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Question</TableHead>
-                  <TableHead>Lang</TableHead>
-                  <TableHead>Confidence</TableHead>
-                  <TableHead>Flags</TableHead>
-                  <TableHead>Latency</TableHead>
-                  <TableHead>Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {queriesQ.data?.queries.map((q) => (
-                  <TableRow key={q.id}>
-                    <TableCell className="max-w-xs">
-                      <span className="text-[12px] text-text-2 font-medium">
-                        {truncate(q.query_text, 75)}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <i className="ti ti-history text-sm text-primary" />
+                Recent queries
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {queriesQ.isLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-9" />
+                  ))}
+                </div>
+              ) : (queriesQ.data?.queries.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">
+                  No queries yet — try one in the Playground.
+                </p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {queriesQ.data!.queries.map((q) => (
+                    <li key={q.id} className="flex items-center gap-3 py-2 text-sm">
+                      <span className="min-w-0 flex-1 truncate text-foreground">
+                        {truncate(q.query_text, 72)}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[11px] uppercase font-semibold text-text-3">
+                      <span className="text-[11px] uppercase text-muted-foreground font-mono shrink-0">
                         {q.detected_language ?? "—"}
                       </span>
-                    </TableCell>
-                    <TableCell>
                       <ConfidenceBadge tier={q.confidence_tier} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {q.declined && (
-                          <Badge variant="destructive">declined</Badge>
-                        )}
-                        {q.cached && (
-                          <Badge variant="secondary">cached</Badge>
-                        )}
-                        {q.degraded && (
-                          <Badge variant="warning">degraded</Badge>
-                        )}
+                      <div className="flex gap-1 shrink-0">
+                        {q.declined && <Badge variant="destructive">declined</Badge>}
+                        {q.cached && <Badge variant="accent">cached</Badge>}
+                        {q.degraded && <Badge variant="warning">degraded</Badge>}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[12px] tabular-nums text-text-3">
+                      <span className="text-xs text-muted-foreground shrink-0">
                         {formatMs(q.latency_ms)}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[11px] text-text-4">
+                      <span className="w-28 text-right text-xs text-muted-foreground shrink-0">
                         {formatDateTime(q.created_at)}
                       </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!queriesQ.data && (
-                  <TableRow>
-                    <TableCell colSpan={6}>
-                      <Skeleton className="h-6 w-full" />
-                    </TableCell>
-                  </TableRow>
-                )}
-                {queriesQ.data?.queries.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="py-10 text-center text-text-4 text-sm"
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <i className="ti ti-message-off text-2xl" />
-                        <span>No queries yet</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
+        {/* Right column */}
+        <div className="space-y-5">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <i className="ti ti-player-play text-sm text-primary" />
+                Quick actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2">
+              <Button asChild variant="secondary" className="justify-start gap-2">
+                <a href="/playground">
+                  <i className="ti ti-message-chatbot text-sm" /> Try a query
+                </a>
+              </Button>
+              <Button asChild variant="secondary" className="justify-start gap-2">
+                <a href="/acts">
+                  <i className="ti ti-books text-sm" /> Manage Acts
+                </a>
+              </Button>
+              <Button asChild variant="secondary" className="justify-start gap-2">
+                <a href="/settings">
+                  <i className="ti ti-settings text-sm" /> Settings
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
