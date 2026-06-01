@@ -192,3 +192,22 @@ async def get_source_urls(slug: str) -> list[dict[str, str]]:
         if cfg.slug == slug:
             return cfg.sources
     return []
+
+
+if __name__ == "__main__":
+    import asyncio
+    import sys
+
+    from app.db.engine import session_scope
+
+    async def _main() -> None:
+        if len(sys.argv) < 2 or sys.argv[1] != "bootstrap":
+            print("Usage: python -m app.ingestion.registry bootstrap", file=sys.stderr)
+            sys.exit(1)
+        async with session_scope() as session:
+            results = await bootstrap(session)
+        inserted = sum(1 for v in results.values() if v == "inserted")
+        updated = sum(1 for v in results.values() if v == "updated")
+        print(f"Bootstrap complete: {inserted} inserted, {updated} updated ({len(results)} total)")
+
+    asyncio.run(_main())

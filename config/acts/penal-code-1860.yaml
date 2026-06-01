@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: penal-code-1860
+short_name: Penal Code 1860
+full_name_en: The Penal Code, 1860
+full_name_bn: দণ্ডবিধি, ১৮৬০
+act_number: XLV
+act_year: 1860
+ministry: Ministry of Law, Justice and Parliamentary Affairs
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-11.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-11.html?lang=en

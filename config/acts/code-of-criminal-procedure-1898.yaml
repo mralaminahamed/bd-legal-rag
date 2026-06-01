@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: code-of-criminal-procedure-1898
+short_name: Code of Criminal Procedure 1898
+full_name_en: The Code of Criminal Procedure, 1898
+full_name_bn: ফৌজদারী কার্যবিধি, ১৮৯৮
+act_number: V
+act_year: 1898
+ministry: Ministry of Home Affairs
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-75.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-75.html?lang=en

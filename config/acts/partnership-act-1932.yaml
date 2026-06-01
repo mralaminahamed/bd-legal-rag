@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: partnership-act-1932
+short_name: Partnership Act 1932
+full_name_en: The Partnership Act, 1932
+full_name_bn: অংশীদারিত্ব আইন, ১৯৩২
+act_number: IX
+act_year: 1932
+ministry: Ministry of Commerce
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-157.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-157.html?lang=en

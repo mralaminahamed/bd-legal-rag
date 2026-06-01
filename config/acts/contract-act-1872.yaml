@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: contract-act-1872
+short_name: Contract Act 1872
+full_name_en: The Contract Act, 1872
+full_name_bn: চুক্তি আইন, ১৮৭২
+act_number: IX
+act_year: 1872
+ministry: Ministry of Law, Justice and Parliamentary Affairs
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-26.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-26.html?lang=en

@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: negotiable-instruments-act-1881
+short_name: Negotiable Instruments Act 1881
+full_name_en: The Negotiable Instruments Act, 1881
+full_name_bn: হস্তান্তরযোগ্য দলিল আইন, ১৮৮১
+act_number: XXVI
+act_year: 1881
+ministry: Ministry of Finance
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-46.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-46.html?lang=en

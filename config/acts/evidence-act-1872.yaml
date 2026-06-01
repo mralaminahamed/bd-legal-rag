@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: evidence-act-1872
+short_name: Evidence Act 1872
+full_name_en: The Evidence Act, 1872
+full_name_bn: সাক্ষ্য আইন, ১৮৭২
+act_number: I
+act_year: 1872
+ministry: Ministry of Law, Justice and Parliamentary Affairs
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-24.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-24.html?lang=en

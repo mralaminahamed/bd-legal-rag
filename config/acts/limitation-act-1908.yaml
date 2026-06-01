@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: limitation-act-1908
+short_name: Limitation Act 1908
+full_name_en: The Limitation Act, 1908
+full_name_bn: তামাদি আইন, ১৯০৮
+act_number: IX
+act_year: 1908
+ministry: Ministry of Law, Justice and Parliamentary Affairs
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-88.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-88.html?lang=en

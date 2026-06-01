@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: specific-relief-act-1877
+short_name: Specific Relief Act 1877
+full_name_en: The Specific Relief Act, 1877
+full_name_bn: সুনির্দিষ্ট প্রতিকার আইন, ১৮৭৭
+act_number: I
+act_year: 1877
+ministry: Ministry of Law, Justice and Parliamentary Affairs
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-36.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-36.html?lang=en

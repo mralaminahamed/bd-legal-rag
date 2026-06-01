@@ -1,0 +1,16 @@
+# Declarative Act registration. Author: Al Amin Ahamed.
+
+slug: constitution-of-bangladesh-1972
+short_name: Constitution of Bangladesh
+full_name_en: The Constitution of the People's Republic of Bangladesh, 1972
+full_name_bn: গণপ্রজাতন্ত্রী বাংলাদেশের সংবিধান, ১৯৭২
+act_number: ""
+act_year: 1972
+ministry: Ministry of Law, Justice and Parliamentary Affairs
+status: in_force
+
+sources:
+  - language: bn
+    source_url: http://bdlaws.minlaw.gov.bd/act-367.html
+  - language: en
+    source_url: http://bdlaws.minlaw.gov.bd/act-367.html?lang=en
