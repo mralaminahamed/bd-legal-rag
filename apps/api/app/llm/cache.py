@@ -42,8 +42,7 @@ def cache_key(
     normalised_query = " ".join(query.strip().lower().split())
     ordered_ids = "|".join(sorted(chunk_ids))
     payload = (
-        f"{normalised_query}|{ordered_ids}|{as_of_date}|{model}|"
-        f"{prompt_version}|{reranker_version}"
+        f"{normalised_query}|{ordered_ids}|{as_of_date}|{model}|{prompt_version}|{reranker_version}"
     )
     digest = hashlib.sha256(payload.encode()).hexdigest()
     return f"response:{digest}"

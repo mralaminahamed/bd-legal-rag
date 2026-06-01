@@ -93,11 +93,7 @@ class AnthropicProvider:
             except anthropic.BadRequestError as exc:
                 raise ProviderRejected(f"anthropic bad_request: {exc}") from exc
 
-            text = "".join(
-                block.text
-                for block in msg.content
-                if hasattr(block, "text")
-            )
+            text = "".join(block.text for block in msg.content if hasattr(block, "text"))
             return CompletionResult(
                 text=text,
                 usage=TokenUsage(
@@ -150,10 +146,7 @@ class AnthropicProvider:
                 messages=[{"role": "user", "content": request.user}],
             ) as stream:
                 async for event in stream:
-                    if (
-                        event.type == "content_block_delta"
-                        and event.delta.type == "text_delta"
-                    ):
+                    if event.type == "content_block_delta" and event.delta.type == "text_delta":
                         yield event.delta.text
         except anthropic.APITimeoutError as exc:
             raise ProviderUnavailable(f"anthropic stream timeout: {exc}") from exc

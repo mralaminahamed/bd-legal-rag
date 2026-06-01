@@ -14,6 +14,7 @@ Author: Al Amin Ahamed.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,8 +28,12 @@ from app.db.models import Act
 
 logger = logging.getLogger(__name__)
 
-# config/acts/ lives two directories above apps/api/ (repo root → config/acts/).
-_CONFIG_DIR = Path(__file__).parents[4] / "config" / "acts"
+# config/acts/ is at the repo root (four parents up from this file on disk).
+# In Docker the env var BDRAG_ACTS_CONFIG_DIR is set to /app/config/acts because
+# the image flattens the source tree and parents[4] would be out of range.
+_CONFIG_DIR = Path(
+    os.environ.get("BDRAG_ACTS_CONFIG_DIR") or (Path(__file__).parents[4] / "config" / "acts")
+)
 
 
 @dataclass(frozen=True)
