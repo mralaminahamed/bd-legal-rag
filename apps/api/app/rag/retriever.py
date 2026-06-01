@@ -259,9 +259,21 @@ async def lexical_search(
     Returns:
         list[_Hit]: Up to ``retrieval_top_n`` hits ordered by ``ts_rank_cd`` desc.
     """
+    # Build a loose OR query from individual words (> 3 chars, no punctuation)
+    # for the hierarchy_path fallback.  The simple config has no stopword removal,
+    # so websearch_to_tsquery ANDs every token including "what", "is", "the".
+    # The OR-word query lets "digital | security | offences" match a hierarchy
+    # like "Chapter III: Offences and Penalties" even without the filler words.
+    _words = [
+        w.lower().strip("?.,;:'\"!()") for w in query.split()
+        if len(w.strip("?.,;:'\"!()")) > 3
+    ]
+    hier_or_q = " | ".join(_words) if _words else query
+
     act_filter = ""
     params: dict[str, object] = {
         "q": query,
+        "hier_q": hier_or_q,
         "lang": language,
         "aod": as_of_date,
         "n": settings.retrieval_top_n,
@@ -270,12 +282,6 @@ async def lexical_search(
         act_filter = "AND c.act_id = ANY(cast(:act_ids AS uuid[]))"
         params["act_ids"] = "{" + ",".join(str(a) for a in act_ids) + "}"
 
-    # The simple config has no stopword removal, so long queries that include
-    # common words ("what", "is", "the") must match ALL tokens in the document.
-    # To avoid missing hits when key terms appear only in hierarchy_path (e.g.
-    # "Labour Act" or "Weekly Holiday"), we broaden the match with an OR that
-    # checks hierarchy_path too.  This is an unindexed scan but the corpus is
-    # small and this only runs when the indexed content_tsv search returns nothing.
     sql = text(
         f"""
         SELECT
@@ -289,7 +295,7 @@ async def lexical_search(
             GREATEST(
                 ts_rank_cd(c.content_tsv, websearch_to_tsquery('simple', :q)),
                 ts_rank_cd(to_tsvector('simple', c.hierarchy_path),
-                           websearch_to_tsquery('simple', :q))
+                           to_tsquery('simple', :hier_q))
             ) AS score
         FROM chunks c
         JOIN provision_revisions pr ON pr.id = c.revision_id
@@ -298,7 +304,7 @@ async def lexical_search(
           AND (
             c.content_tsv @@ websearch_to_tsquery('simple', :q)
             OR to_tsvector('simple', c.hierarchy_path)
-               @@ websearch_to_tsquery('simple', :q)
+               @@ to_tsquery('simple', :hier_q)
           )
           AND pr.effective_from <= :aod
           AND (pr.effective_to IS NULL OR pr.effective_to >= :aod)
