@@ -33,10 +33,12 @@ async def _flush_response_cache() -> AsyncIterator[None]:
             keys = await redis.keys("response:*")
             if keys:
                 await redis.delete(*keys)
-            await redis.aclose()
         except Exception:
             pass  # Redis not available — nothing to flush
 
-    await _flush()
-    yield
-    await _flush()
+    try:
+        await _flush()
+        yield
+        await _flush()
+    except Exception:
+        yield
