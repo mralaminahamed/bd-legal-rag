@@ -1,0 +1,74 @@
+name: Feature request
+description: Propose a new feature or improvement
+labels: [enhancement]
+assignees: [mralaminahamed]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Features that touch retrieval, generation, or safety machinery require the
+        eval harness to pass after implementation. Note this in your proposal.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or motivation
+      description: |
+        What limitation or gap does this address? Reference SRS requirement IDs
+        (FR-*/NFR-*) if this is already in scope.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe the change you have in mind. Include which files / modules would
+        change and any trade-offs you see.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Corpus (new Acts / languages)
+        - Retrieval quality
+        - Generation quality
+        - Safety machinery
+        - API
+        - Admin console UI
+        - Infrastructure / DevOps
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: safety_impact
+    attributes:
+      label: Does this affect disclaimer, decline gate, citation, or guardrails?
+      options:
+        - "No"
+        - "Yes — eval harness must pass"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about and why you ruled them out.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and PRs before opening this one
+          required: true
+        - label: I have read CONTRIBUTING.md
+          required: true

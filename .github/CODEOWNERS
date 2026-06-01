@@ -1,0 +1,19 @@
+# Code ownership for bd-legal-rag.
+# These owners are automatically requested for review on relevant PRs.
+# Syntax: <pattern> <owner> [<owner> ...]
+
+# Default — everything
+*                                   @mralaminahamed
+
+# Safety-critical: disclaimer, decline gate, guardrails, citation
+apps/api/app/prompts/               @mralaminahamed
+apps/api/app/rag/decline_gate.py    @mralaminahamed
+apps/api/app/rag/guardrails.py      @mralaminahamed
+apps/api/app/rag/citation.py        @mralaminahamed
+apps/api/app/rag/generator.py       @mralaminahamed
+
+# Schema migrations — always needs a second pair of eyes
+apps/api/app/db/migrations/         @mralaminahamed
+
+# Act corpus definitions
+config/acts/                        @mralaminahamed
