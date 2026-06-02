@@ -29,7 +29,13 @@ logger = logging.getLogger(__name__)
 _SECTION_NUM_RE = re.compile(r"^(\d+[A-Z]?(?:\.\d+)?)[.\s]")
 _DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b|\b(\d{4})\b")
 _WHITESPACE = re.compile(r"\s+")
-_DETAIL_URL_RE = re.compile(r"act-details-(\d+)\.html", re.IGNORECASE)
+# Matches bdlaws per-section URLs: /act-{actId}/section-{sectionId}.html
+# Also matches legacy: act-details-{id}.html
+_DETAIL_URL_RE = re.compile(
+    r"/(act-\d+/(?:section|chapter|sub-section)-(\d+))\.html"
+    r"|act-details-(\d+)\.html",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -175,24 +181,28 @@ class _Parser:
         self.warnings.append(ParseWarning(message=message, context=context[:200]))
 
     def _detail_url(self, node: Node) -> str:
-        """Extract per-section bdlaws URL from an act-details-{id}.html href.
+        """Extract per-section bdlaws URL from section href on the DOM node.
 
-        Searches all ``<a>`` descendants of *node* for a bdlaws section detail
-        link.  Returns the canonical detail URL when found, otherwise falls back
-        to the act-level source URL.
+        Searches ``<a>`` descendants for bdlaws section/chapter links in the
+        form ``/act-{actId}/section-{sectionId}.html`` (current portal format)
+        or the legacy ``act-details-{id}.html`` pattern.  Falls back to the
+        act-level source URL when neither is found.
 
         Args:
             node: DOM node to search.
 
         Returns:
-            str: ``http://bdlaws.minlaw.gov.bd/act-details-{id}.html`` or the
-                act-level fallback URL.
+            str: Canonical section URL on bdlaws, or the act-level fallback.
         """
         for anchor in node.css("a[href]"):
             href = anchor.attributes.get("href") or ""
             m = _DETAIL_URL_RE.search(href)
             if m:
-                return f"http://bdlaws.minlaw.gov.bd/act-details-{m.group(1)}.html"
+                if m.group(1):
+                    # /act-{actId}/section-{sectionId}.html — current format
+                    return f"https://bdlaws.minlaw.gov.bd{href.split('?')[0]}"
+                # legacy act-details-{id}.html
+                return f"https://bdlaws.minlaw.gov.bd/act-details-{m.group(3)}.html"
         return self._source_url
 
     def parse(self, html: str) -> ProvisionNode:
