@@ -180,10 +180,9 @@ async def vector_search(
     Returns:
         list[_Hit]: Up to ``retrieval_top_n`` hits, ordered cosine similarity desc.
     """
-    await session.execute(
-        text("SET hnsw.ef_search = :ef"),
-        {"ef": settings.ef_search},
-    )
+    # asyncpg does not support parameterised SET statements; the integer value
+    # is safe to inline directly because Settings.ef_search is validated ge=1.
+    await session.execute(text(f"SET hnsw.ef_search = {int(settings.ef_search)}"))
 
     emb = _emb_str(embedding)
     act_filter = ""
