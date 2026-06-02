@@ -12,12 +12,16 @@ from typing import Any
 
 
 def _load_registry() -> dict[str, Any]:
+    from app.prompts.families.act_summary import v1 as act_summary_v1
+    from app.prompts.families.legal_advice import v1 as legal_advice_v1
     from app.prompts.families.legal_answer import v1 as legal_answer_v1
     from app.prompts.families.legal_answer import v2 as legal_answer_v2
 
     return {
         "legal_answer:v1": legal_answer_v1,
         "legal_answer:v2": legal_answer_v2,
+        "act_summary:v1": act_summary_v1,
+        "legal_advice:v1": legal_advice_v1,
     }
 
 

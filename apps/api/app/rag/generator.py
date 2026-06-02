@@ -41,9 +41,11 @@ from app.llm.circuit_breaker import CostCeilingExceeded, guard
 from app.prompts import registry as prompt_registry
 from app.prompts.safety import decline as decline_mod
 from app.prompts.safety import disclaimer as disclaimer_mod
+from app.rag.act_info import section_list_markdown
 from app.rag.citation import CitationContext, format_citation, resolve_placeholders
 from app.rag.decline_gate import classify as decline_classify
 from app.rag.guardrails import scan as guardrails_scan
+from app.rag.intent import classify as classify_intent
 from app.rag.postprocessor import strip_filler
 from app.rag.retriever import RetrievedChunk
 from app.rag.service import RetrievalResult
@@ -264,8 +266,23 @@ async def generate(
     if language == "mixed":
         language = "en"
 
-    prompt_family = "legal_answer"
-    prompt_version = s.active_prompt_version
+    # ── Intent routing ─────────────────────────────────────────────────────────
+    intent = classify_intent(retrieval_result.query)
+
+    # Select prompt family and version based on intent
+    if intent in ("act_summary", "act_explain"):
+        prompt_family = "act_summary"
+        prompt_version = "v1"
+    elif intent == "legal_advice":
+        prompt_family = "legal_advice"
+        prompt_version = "v1"
+    else:
+        prompt_family = "legal_answer"
+        prompt_version = s.active_prompt_version
+
+    # Non-QA intents bypass the decline gate
+    _bypass_decline = intent in ("act_summary", "act_explain", "legal_advice", "section_list")
+
     disclaimer_version = s.active_disclaimer_version
     decline_version = s.active_decline_version
     reranker_version = s.rerank_model
@@ -305,40 +322,69 @@ async def generate(
                 disclaimer_version=disclaimer_version,
             )
 
-    # ── 3. Decline gate (after cache, before any DB work) ─────────────────────
-    decline_decision = decline_classify(
-        retrieval_result.query,
-        chunks=retrieval_result.chunks,
-        settings=s,
-    )
-    if decline_decision.declined:
-        decline_text_obj = decline_mod.resolve(decline_version)
-        decline_body = decline_text_obj.bn if language == "bn" else decline_text_obj.en
-        answer = disclaimer_mod.inject(decline_body, version=disclaimer_version, language=language)
-        return GenerateResponse(
-            answer=answer,
-            citations=[],
-            disclaimer=disc,
-            cached=False,
-            degraded=False,
-            declined=True,
-            usage=None,
-            disclaimer_version=disclaimer_version,
-        )
+    # ── 3. Section list: serve from DB directly, no LLM ──────────────────────
+    if intent == "section_list":
+        act_id = str(retrieval_result.act_ids[0]) if retrieval_result.act_ids else None
+        if act_id:
+            md = await section_list_markdown(act_id, session, language)
+            if md:
+                body = disclaimer_mod.inject(md, version=disclaimer_version, language=language)
+                return GenerateResponse(
+                    answer=body,
+                    citations=[],
+                    disclaimer=disc,
+                    cached=False,
+                    degraded=False,
+                    declined=False,
+                    usage=None,
+                    disclaimer_version=disclaimer_version,
+                )
 
-    # ── 4. Resolve act metadata and citation contexts (only for generation) ────
+    # ── 4. Decline gate (after cache, before any DB work) ─────────────────────
+    if not _bypass_decline:
+        decline_decision = decline_classify(
+            retrieval_result.query,
+            chunks=retrieval_result.chunks,
+            settings=s,
+        )
+        if decline_decision.declined:
+            decline_text_obj = decline_mod.resolve(decline_version)
+            decline_body = decline_text_obj.bn if language == "bn" else decline_text_obj.en
+            answer = disclaimer_mod.inject(
+                decline_body, version=disclaimer_version, language=language
+            )
+            return GenerateResponse(
+                answer=answer,
+                citations=[],
+                disclaimer=disc,
+                cached=False,
+                degraded=False,
+                declined=True,
+                usage=None,
+                disclaimer_version=disclaimer_version,
+            )
+
+    # ── 5. Resolve act metadata and citation contexts (only for generation) ────
     act_ids = {str(c.act_id) for c in retrieval_result.chunks}
     act_map = await _resolve_act_metadata(session, act_ids)
     contexts = _build_citation_contexts(retrieval_result.chunks, act_map)
 
     prompt_mod = prompt_registry.resolve(prompt_family, prompt_version)
-    rendered = prompt_mod.render(
-        question=retrieval_result.query,
-        chunks=retrieval_result.chunks,
-        language=language,
-    )
+    if intent in ("act_summary", "act_explain", "legal_advice"):
+        rendered = prompt_mod.render(
+            question=retrieval_result.query,
+            chunks=retrieval_result.chunks,
+            language=language,
+            intent=intent,
+        )
+    else:
+        rendered = prompt_mod.render(
+            question=retrieval_result.query,
+            chunks=retrieval_result.chunks,
+            language=language,
+        )
 
-    # ── 5. Circuit breaker (after decline check, before provider call) ────────
+    # ── 6. Circuit breaker (after decline check, before provider call) ────────
     input_tokens = _estimate_input_tokens(rendered.system, rendered.user)
     try:
         guard(
@@ -367,7 +413,7 @@ async def generate(
             disclaimer_version=disclaimer_version,
         )
 
-    # ── 4. LLM call with guardrails retry ────────────────────────────────────
+    # ── 7. LLM call with guardrails retry ────────────────────────────────────
     provider = llm_factory.create_provider(s)
     request = CompletionRequest(
         system=rendered.system,
@@ -471,8 +517,23 @@ async def generate_stream(
     if language == "mixed":
         language = "en"
 
-    prompt_family = "legal_answer"
-    prompt_version = s.active_prompt_version
+    # ── Intent routing ─────────────────────────────────────────────────────────
+    intent = classify_intent(retrieval_result.query)
+
+    # Select prompt family and version based on intent
+    if intent in ("act_summary", "act_explain"):
+        prompt_family = "act_summary"
+        prompt_version = "v1"
+    elif intent == "legal_advice":
+        prompt_family = "legal_advice"
+        prompt_version = "v1"
+    else:
+        prompt_family = "legal_answer"
+        prompt_version = s.active_prompt_version
+
+    # Non-QA intents bypass the decline gate
+    _bypass_decline = intent in ("act_summary", "act_explain", "legal_advice", "section_list")
+
     disclaimer_version = s.active_disclaimer_version
     decline_version = s.active_decline_version
     reranker_version = s.rerank_model
@@ -515,42 +576,73 @@ async def generate_stream(
             )
             return
 
-    # ── 3. Decline gate → single final event ──────────────────────────────────
-    decline_decision = decline_classify(
-        retrieval_result.query,
-        chunks=retrieval_result.chunks,
-        settings=s,
-    )
-    if decline_decision.declined:
-        decline_text_obj = decline_mod.resolve(decline_version)
-        decline_body = decline_text_obj.bn if language == "bn" else decline_text_obj.en
-        answer = disclaimer_mod.inject(decline_body, version=disclaimer_version, language=language)
-        yield StreamEvent(
-            type="final",
-            text="",
-            answer=answer,
-            citations=[],
-            disclaimer=disc,
-            cached=False,
-            degraded=False,
-            declined=True,
-            usage=None,
-        )
-        return
+    # ── 3. Section list: serve from DB directly, no LLM ──────────────────────
+    if intent == "section_list":
+        act_id = str(retrieval_result.act_ids[0]) if retrieval_result.act_ids else None
+        if act_id:
+            md = await section_list_markdown(act_id, session, language)
+            if md:
+                body = disclaimer_mod.inject(md, version=disclaimer_version, language=language)
+                yield StreamEvent(
+                    type="final",
+                    text="",
+                    answer=body,
+                    citations=[],
+                    disclaimer=disc,
+                    cached=False,
+                    degraded=False,
+                    declined=False,
+                    usage=None,
+                )
+                return
 
-    # ── 4. Resolve act metadata (DB) and render prompt ────────────────────────
+    # ── 4. Decline gate → single final event ──────────────────────────────────
+    if not _bypass_decline:
+        decline_decision = decline_classify(
+            retrieval_result.query,
+            chunks=retrieval_result.chunks,
+            settings=s,
+        )
+        if decline_decision.declined:
+            decline_text_obj = decline_mod.resolve(decline_version)
+            decline_body = decline_text_obj.bn if language == "bn" else decline_text_obj.en
+            answer = disclaimer_mod.inject(
+                decline_body, version=disclaimer_version, language=language
+            )
+            yield StreamEvent(
+                type="final",
+                text="",
+                answer=answer,
+                citations=[],
+                disclaimer=disc,
+                cached=False,
+                degraded=False,
+                declined=True,
+                usage=None,
+            )
+            return
+
+    # ── 5. Resolve act metadata (DB) and render prompt ────────────────────────
     act_ids = {str(c.act_id) for c in retrieval_result.chunks}
     act_map = await _resolve_act_metadata(session, act_ids)
     contexts = _build_citation_contexts(retrieval_result.chunks, act_map)
 
     prompt_mod = prompt_registry.resolve(prompt_family, prompt_version)
-    rendered = prompt_mod.render(
-        question=retrieval_result.query,
-        chunks=retrieval_result.chunks,
-        language=language,
-    )
+    if intent in ("act_summary", "act_explain", "legal_advice"):
+        rendered = prompt_mod.render(
+            question=retrieval_result.query,
+            chunks=retrieval_result.chunks,
+            language=language,
+            intent=intent,
+        )
+    else:
+        rendered = prompt_mod.render(
+            question=retrieval_result.query,
+            chunks=retrieval_result.chunks,
+            language=language,
+        )
 
-    # ── 5. Circuit breaker → single final event ───────────────────────────────
+    # ── 6. Circuit breaker → single final event ───────────────────────────────
     input_tokens = _estimate_input_tokens(rendered.system, rendered.user)
     try:
         guard(

@@ -89,6 +89,8 @@ class Settings(BaseSettings):
         confidence_t_keep: Minimum score for a chunk to count toward the tier.
         decline_recall_floor: Minimum retrieval recall before forcing a decline.
         decline_advice_confidence_floor: Minimum classifier confidence to decline.
+        decline_gate_enabled: Master switch; when ``False`` the decline gate is
+            bypassed entirely (overridden per-intent by the intent router).
         active_disclaimer_version: Version string of the active disclaimer text.
         active_decline_version: Version string of the active decline text.
         response_cache_ttl_seconds: Default TTL for cached answers.
@@ -177,6 +179,7 @@ class Settings(BaseSettings):
     # --- Decline gate (§2.5, NFR-LS-3) ---
     decline_recall_floor: float = Field(default=0.10, ge=0.0, le=1.0)
     decline_advice_confidence_floor: float = Field(default=0.70, ge=0.0, le=1.0)
+    decline_gate_enabled: bool = True
 
     # --- Safety versioning (§2.5, ADR-004) ---
     # These name the active version of the disclaimer and decline text.
