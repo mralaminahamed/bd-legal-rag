@@ -198,16 +198,41 @@ if __name__ == "__main__":
     import asyncio
     import sys
 
-    from app.db.engine import session_scope
-
     async def _main() -> None:
-        if len(sys.argv) < 2 or sys.argv[1] != "bootstrap":
-            print("Usage: python -m app.ingestion.registry bootstrap", file=sys.stderr)
+        from app.db.engine import session_scope  # noqa: PLC0415
+        cmd = sys.argv[1] if len(sys.argv) >= 2 else ""
+
+        if cmd == "bootstrap":
+            async with session_scope() as session:
+                results = await bootstrap(session)
+            inserted = sum(1 for v in results.values() if v == "inserted")
+            updated = sum(1 for v in results.values() if v == "updated")
+            total = len(results)
+            print(f"Bootstrap complete: {inserted} inserted, {updated} updated ({total} total)")
+
+        elif cmd == "ingest-all":
+            from app.ingestion.tasks import ingest_act_task  # noqa: PLC0415
+            slugs = [c.slug for c in _load_act_configs()]
+            dispatched = 0
+            async with session_scope() as session:
+                for slug in slugs:
+                    act = await get_act_by_slug(session, slug)
+                    if act is None:
+                        print(f"  skip (not in DB): {slug} — run bootstrap first")
+                        continue
+                    ingest_act_task.delay(str(act.id))
+                    dispatched += 1
+                    print(f"  queued: {slug}")
+            print(f"\nDispatched {dispatched} acts (×2 languages each via fan-out)")
+            print("Monitor: Acts Registry page or docker compose logs worker")
+
+        else:
+            print(
+                "Usage:\n"
+                "  python -m app.ingestion.registry bootstrap\n"
+                "  python -m app.ingestion.registry ingest-all",
+                file=sys.stderr,
+            )
             sys.exit(1)
-        async with session_scope() as session:
-            results = await bootstrap(session)
-        inserted = sum(1 for v in results.values() if v == "inserted")
-        updated = sum(1 for v in results.values() if v == "updated")
-        print(f"Bootstrap complete: {inserted} inserted, {updated} updated ({len(results)} total)")
 
     asyncio.run(_main())
