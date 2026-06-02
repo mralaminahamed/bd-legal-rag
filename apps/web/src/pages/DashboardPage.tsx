@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { getMetrics, getRecentQueries, getHealth } from "@/api/admin";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
@@ -188,28 +189,47 @@ export function DashboardPage() {
                 </p>
               ) : (
                 <ul className="divide-y divide-border">
-                  {queriesQ.data!.queries.map((q) => (
-                    <li key={q.id} className="flex items-center gap-3 py-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate text-foreground">
-                        {truncate(q.query_text, 72)}
-                      </span>
-                      <span className="text-[11px] uppercase text-muted-foreground font-mono shrink-0">
-                        {q.detected_language ?? "—"}
-                      </span>
-                      <ConfidenceBadge tier={q.confidence_tier} />
-                      <div className="flex gap-1 shrink-0">
-                        {q.declined && <Badge variant="destructive">declined</Badge>}
-                        {q.cached && <Badge variant="accent">cached</Badge>}
-                        {q.degraded && <Badge variant="warning">degraded</Badge>}
-                      </div>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {formatMs(q.latency_ms)}
-                      </span>
-                      <span className="w-28 text-right text-xs text-muted-foreground shrink-0">
-                        {formatDateTime(q.created_at)}
-                      </span>
-                    </li>
-                  ))}
+                  {queriesQ.data!.queries.map((q) => {
+                    const threadId = crypto.randomUUID();
+                    const replayUrl = `/playground/${threadId}?q=${encodeURIComponent(q.query_text)}`;
+                    return (
+                      <li key={q.id} className="group flex items-center gap-3 py-2 text-sm">
+                        {/* Short query ID */}
+                        <span
+                          className="font-mono text-[10px] text-muted-foreground/50 shrink-0 w-14 select-all"
+                          title={q.id}
+                        >
+                          {q.id.slice(0, 8)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-foreground">
+                          {truncate(q.query_text, 60)}
+                        </span>
+                        <span className="text-[11px] uppercase text-muted-foreground font-mono shrink-0">
+                          {q.detected_language ?? "—"}
+                        </span>
+                        <ConfidenceBadge tier={q.confidence_tier} />
+                        <div className="flex gap-1 shrink-0">
+                          {q.declined && <Badge variant="destructive">declined</Badge>}
+                          {q.cached && <Badge variant="accent">cached</Badge>}
+                          {q.degraded && <Badge variant="warning">degraded</Badge>}
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {formatMs(q.latency_ms)}
+                        </span>
+                        <span className="w-24 text-right text-xs text-muted-foreground shrink-0">
+                          {formatDateTime(q.created_at)}
+                        </span>
+                        {/* Replay in playground */}
+                        <Link
+                          to={replayUrl}
+                          title="Replay in Playground"
+                          className="shrink-0 text-muted-foreground/40 hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <i className="ti ti-player-play text-sm" />
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </CardContent>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getActs } from "@/api/query";
 import { Button } from "@/components/ui/button";
@@ -199,11 +199,12 @@ function AiBubble({
 export function PlaygroundPage() {
   const { threadId } = useParams<{ threadId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [messages, setMessages] = useState<Message[]>(() =>
     threadId ? loadMessages(threadId) : [],
   );
-  const [question, setQuestion] = useState("");
+  const [question, setQuestion] = useState(() => searchParams.get("q") ?? "");
   const [actSlug, setActSlug] = useState("");
   const [uiLang, setUiLang] = useState<UILang>("en");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -213,6 +214,14 @@ export function PlaygroundPage() {
 
   const actsQ = useQuery({ queryKey: ["acts"], queryFn: getActs, staleTime: Infinity });
   const s = UI_STRINGS[uiLang];
+
+  // Clear ?q param from URL once we've read it into state
+  useEffect(() => {
+    if (searchParams.get("q")) {
+      setSearchParams({}, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load messages when threadId changes (navigating between threads)
   useEffect(() => {
