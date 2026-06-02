@@ -1,24 +1,42 @@
 # Bangladesh Legal RAG — production stack (NFR-PT-1).
 # Author: Al Amin Ahamed.
 #
-#   DOMAIN=legal.example.com BDRAG_COHERE_API_KEY=... BDRAG_ANTHROPIC_API_KEY=... \
-#   BDRAG_ADMIN_BEARER_TOKEN=... POSTGRES_PASSWORD=... \
+# Quickstart (on a server with Docker installed):
+#
+#   export DOMAIN=legal.example.com
+#   export POSTGRES_PASSWORD=$(openssl rand -hex 32)
+#   export BDRAG_ADMIN_BEARER_TOKEN=$(openssl rand -hex 32)
+#   export BDRAG_COHERE_API_KEY=co-...
+#   export BDRAG_ANTHROPIC_API_KEY=sk-ant-...
 #   docker compose -f docker-compose.prod.yml up -d
 #
-# Caddy terminates TLS automatically for $DOMAIN and reverse-proxies the API.
-# All secrets come from the environment; none are baked into the image.
+# Caddy obtains and renews TLS certificates automatically.
+# All secrets come from the environment — none are baked into images.
+# Persist DOMAIN, POSTGRES_PASSWORD, BDRAG_ADMIN_BEARER_TOKEN in a .env file
+# (NOT committed) and source it before every deploy.
 
 x-app-env: &app-env
   BDRAG_ENVIRONMENT: production
   BDRAG_DATABASE_DSN: postgresql+asyncpg://bdrag:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/bdrag
   BDRAG_REDIS_DSN: redis://redis:6379/0
+  BDRAG_LOG_LEVEL: ${BDRAG_LOG_LEVEL:-INFO}
+  # LLM provider selection (default: anthropic; set to ollama for fully local)
   BDRAG_DEFAULT_PROVIDER: ${BDRAG_DEFAULT_PROVIDER:-anthropic}
+  BDRAG_ANTHROPIC_MODEL: ${BDRAG_ANTHROPIC_MODEL:-claude-sonnet-4-6}
+  BDRAG_OPENAI_MODEL: ${BDRAG_OPENAI_MODEL:-gpt-4o-mini}
+  BDRAG_OLLAMA_MODEL: ${BDRAG_OLLAMA_MODEL:-llama3.2}
+  BDRAG_OLLAMA_BASE_URL: ${BDRAG_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+  BDRAG_OLLAMA_EMBED_MODEL: ${BDRAG_OLLAMA_EMBED_MODEL:-qwen3-embedding:4b}
+  # API credentials — all required in production
   BDRAG_COHERE_API_KEY: ${BDRAG_COHERE_API_KEY:-}
   BDRAG_ANTHROPIC_API_KEY: ${BDRAG_ANTHROPIC_API_KEY:-}
   BDRAG_OPENAI_API_KEY: ${BDRAG_OPENAI_API_KEY:-}
   BDRAG_ADMIN_BEARER_TOKEN: ${BDRAG_ADMIN_BEARER_TOKEN:?set BDRAG_ADMIN_BEARER_TOKEN}
-  BDRAG_CORS_ORIGINS: ${BDRAG_CORS_ORIGINS:-["*"]}
-  BDRAG_LOG_LEVEL: ${BDRAG_LOG_LEVEL:-INFO}
+  BDRAG_CORS_ORIGINS: ${BDRAG_CORS_ORIGINS:-["https://${DOMAIN}"]}
+  # Cost circuit breaker (USD per request)
+  BDRAG_COST_CEILING_USD_PER_REQUEST: ${BDRAG_COST_CEILING_USD_PER_REQUEST:-0.10}
+  # Decline gate — calibrated for RRF score range (see RUNBOOK.md)
+  BDRAG_DECLINE_RECALL_FLOOR: ${BDRAG_DECLINE_RECALL_FLOOR:-0.001}
 
 services:
   postgres:
@@ -50,25 +68,33 @@ services:
 
   app:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
     environment:
       <<: *app-env
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: unless-stopped
 
   worker:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
     environment:
       <<: *app-env
-    command: ["celery", "-A", "app.ingestion.tasks:celery_app", "worker", "-l", "info"]
+    command: ["celery", "-A", "app.ingestion.tasks:celery_app", "worker", "-l", "info", "--concurrency", "4"]
     depends_on:
       redis:
         condition: service_healthy
@@ -78,8 +104,9 @@ services:
 
   beat:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
     environment:
       <<: *app-env
     command:
@@ -90,35 +117,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Operator admin console — React SPA served by nginx
   web:
-    image: nginx:1.27-alpine
-    volumes:
-      - ./apps/web:/usr/share/nginx/html:ro
-    restart: unless-stopped
-
-  admin:
     build:
-      context: ./apps/admin
+      context: ./apps/web
       dockerfile: Dockerfile
+      target: runtime
       args:
         VITE_API_BASE_URL: https://${DOMAIN:?set DOMAIN}
+        VITE_ADMIN_TOKEN: ""
     restart: unless-stopped
 
   caddy:
     image: caddy:2-alpine
-    environment:
-      DOMAIN: ${DOMAIN:?set DOMAIN}
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
       - caddyconfig:/config
     depends_on:
-      - app
-      - web
-      - admin
+      app:
+        condition: service_healthy
+      web:
+        condition: service_started
     restart: unless-stopped
 
 volumes:

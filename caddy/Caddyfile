@@ -1,26 +1,32 @@
-# Caddy reverse proxy with automatic TLS (NFR-PT-1).
+# BD Legal RAG — Caddy reverse proxy (NFR-PT-1).
 # Author: Al Amin Ahamed.
 #
-# $DOMAIN serves the API (/api/*, /health) and the bilingual search interface
-# (everything else); admin.$DOMAIN serves the admin console. Caddy provisions
-# and renews Let's Encrypt certificates for both automatically.
+# $DOMAIN is injected via the DOMAIN env var in docker-compose.prod.yml.
+# Caddy provisions and renews Let's Encrypt TLS certificates automatically.
+#
+# Routing:
+#   $DOMAIN/api/*   → FastAPI app (port 8000)
+#   $DOMAIN/health  → FastAPI app (port 8000)
+#   $DOMAIN/*       → Operator admin console / SPA (nginx, port 80)
 
 {$DOMAIN} {
 	encode zstd gzip
 
-	# API and health checks go to the FastAPI service.
+	# Security headers
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
+	# API and health check endpoints → FastAPI
 	@api path /api/* /health
 	handle @api {
 		reverse_proxy app:8000
 	}
 
-	# Everything else is the bilingual search interface.
+	# All other paths → nginx-served admin console SPA
 	handle {
 		reverse_proxy web:80
 	}
-}
-
-admin.{$DOMAIN} {
-	encode zstd gzip
-	reverse_proxy admin:80
 }

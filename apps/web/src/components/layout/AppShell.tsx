@@ -9,6 +9,7 @@ import { ThemeToggle } from "./ThemeToggle";
 const NAV = [
   { to: "/", label: "Dashboard", icon: "ti-layout-dashboard", end: true },
   { to: "/acts", label: "Acts Registry", icon: "ti-books", end: false },
+  { to: "/corpus", label: "Corpus Coverage", icon: "ti-timeline", end: false },
   { to: "/playground", label: "Playground", icon: "ti-message-chatbot", end: false },
   { to: "/settings", label: "Settings", icon: "ti-settings", end: false },
 ];

@@ -47,6 +47,10 @@ jobs:
           BDRAG_COHERE_API_KEY: ${{ secrets.BDRAG_COHERE_API_KEY }}
           BDRAG_ANTHROPIC_API_KEY: ${{ secrets.BDRAG_ANTHROPIC_API_KEY }}
           BDRAG_OPENAI_API_KEY: ${{ secrets.BDRAG_OPENAI_API_KEY }}
+          BDRAG_DEFAULT_PROVIDER: ${{ secrets.BDRAG_DEFAULT_PROVIDER }}
+          BDRAG_OLLAMA_BASE_URL: ${{ secrets.BDRAG_OLLAMA_BASE_URL }}
+          BDRAG_OLLAMA_EMBED_MODEL: ${{ secrets.BDRAG_OLLAMA_EMBED_MODEL }}
+          BDRAG_DECLINE_RECALL_FLOOR: "0.001"
         run: docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
       - name: Health check

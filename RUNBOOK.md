@@ -52,11 +52,12 @@ curl -sS "$API/api/v1/admin/acts" -H "Authorization: Bearer $TOKEN"
 
 ```bash
 # Ingest all Acts (one Celery task per (act, language)):
-curl -sS -X POST "$API/api/v1/admin/ingest" -H "Authorization: Bearer $TOKEN"
+curl -sS -X POST "$API/api/v1/admin/acts/ingest" -H "Authorization: Bearer $TOKEN"
+# → {"task_ids":[...],"message":"Dispatched 32 ingestion tasks for 16 acts."}
 
 # Or ingest a single Act:
-curl -sS -X POST "$API/api/v1/admin/ingest/labour-act-2006" -H "Authorization: Bearer $TOKEN"
-# → {"act_slug":"labour-act-2006","enqueued_tasks":2}
+curl -sS -X POST "$API/api/v1/admin/acts/labour-act-2006/ingest" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json"
 ```
 
 A failing task never aborts other tasks. Unchanged provisions are skipped by content hash. Watch
@@ -187,7 +188,7 @@ the env-file defaults — a stale override can never wedge generation.
    curl -X POST "$API/api/v1/admin/ingest/<slug>" -H "Authorization: Bearer $TOKEN"
    ```
 
-3. Add ≥ 8 golden records (4 BN + 4 EN) to `apps/api/eval/dataset/golden.jsonl`.
+3. Add ≥ 4 BN + 4 EN golden records to `apps/api/eval/dataset/golden.jsonl`.
 4. Run `python -m eval.harness` — thresholds must still hold with the expanded corpus.
 
 ## 9. Investigate a wrong_citation feedback report
