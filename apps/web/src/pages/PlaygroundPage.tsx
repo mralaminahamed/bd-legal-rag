@@ -259,11 +259,16 @@ export function PlaygroundPage() {
             cached: m.cached,
             degraded: m.degraded,
             status: "done" as const,
-            // override with extracted body if disclaimer found
             ...(disclaimer ? { answer: body } : {}),
           };
         });
         setMessages(loaded);
+        // Restore feedback state from server
+        const restored: Record<string, string> = {};
+        for (const m of thread.messages) {
+          if (m.feedback_rating) restored[m.id] = m.feedback_rating;
+        }
+        setFeedbackGiven(restored);
       })
       .catch(() => {
         // New thread or fetch failed — start empty

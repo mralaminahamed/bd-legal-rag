@@ -402,27 +402,33 @@ async def thread_endpoint(
     Returns:
         ThreadResponse: Ordered list of messages for this thread.
     """
+    from sqlalchemy import outerjoin  # noqa: PLC0415
+
+    from app.db.models import Feedback  # noqa: PLC0415
+
     result = await session.execute(
-        select(Query)
+        select(Query, Feedback.rating)
+        .select_from(outerjoin(Query, Feedback, Feedback.query_id == Query.id))
         .where(Query.correlation_id == thread_id)
         .order_by(Query.created_at),
     )
-    rows = list(result.scalars().all())
+    rows = list(result.all())
 
     messages = [
         ThreadMessage(
             id=str(q.id),
             question=q.query_text,
             answer=q.response_text,
-            disclaimer=None,  # embedded in response_text; extracted client-side
+            disclaimer=None,
             declined=q.declined,
             cached=q.cached,
             degraded=q.degraded,
             confidence_tier=q.confidence_tier,
             detected_language=q.detected_language,
             created_at=q.created_at,
+            feedback_rating=rating,
         )
-        for q in rows
+        for q, rating in rows
     ]
 
     return ThreadResponse(thread_id=thread_id, messages=messages)

@@ -128,6 +128,7 @@ class ThreadMessage(BaseModel):
     confidence_tier: str | None
     detected_language: str | None
     created_at: datetime
+    feedback_rating: str | None = None
 
 
 class ThreadResponse(BaseModel):

@@ -29,6 +29,7 @@ export interface ThreadMessage {
   confidence_tier: "HIGH" | "MEDIUM" | "LOW" | null;
   detected_language: string | null;
   created_at: string;
+  feedback_rating: string | null;
 }
 
 export interface ThreadResponse {
