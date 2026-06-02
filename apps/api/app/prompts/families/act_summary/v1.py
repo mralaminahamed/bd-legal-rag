@@ -26,7 +26,7 @@ LANGUAGE: {language_instruction}
 
 INSTRUCTIONS:
 - Write in flowing prose, not bullet lists.
-- Cite key provisions using {cite:CHUNK_ID} where relevant, but do not over-cite.
+- Cite key provisions using {{cite:CHUNK_ID}} where relevant, but do not over-cite.
 - Structure: what the Act is about → who it applies to → key provisions/rights/obligations → penalties if any.
 - Be informative and clear. Avoid legalese unless quoting directly.
 - Do not start with "Certainly", "Sure", "Based on", or any filler phrase.

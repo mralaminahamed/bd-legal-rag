@@ -36,7 +36,7 @@ Start with one direct answer sentence (no label, no heading).
 If the provisions contain substantive text, follow with:
 
 **Statutory basis:**
-Quote the key text verbatim. End each quote with {cite:CHUNK_ID}.
+Quote the key text verbatim. End each quote with {{cite:CHUNK_ID}}.
 
 **Key conditions:** (only if there are specific conditions worth listing — skip otherwise)
 
@@ -63,10 +63,10 @@ CONCISENESS RULE: Use the minimum words necessary. Legal precision beats verbosi
 
 Question: What is the penalty for digital fraud under the Digital Security Act 2018?
 
-Digital fraud under Section 17 is punishable by up to five years imprisonment, a fine of up to five lakh taka, or both. {cite:dsa-s17-en}
+Digital fraud under Section 17 is punishable by up to five years imprisonment, a fine of up to five lakh taka, or both. {{cite:dsa-s17-en}}
 
 **Statutory basis:**
-"Any person who, with intent to defraud, uses a computer or digital device to deceive another person for financial or other gain shall be punished with imprisonment not exceeding five years or a fine not exceeding five lakh taka, or both." {cite:dsa-s17-en}
+"Any person who, with intent to defraud, uses a computer or digital device to deceive another person for financial or other gain shall be punished with imprisonment not exceeding five years or a fine not exceeding five lakh taka, or both." {{cite:dsa-s17-en}}
 
 **Conditions and scope:**
 - Requires intent to defraud
@@ -110,10 +110,10 @@ _SYSTEM_TEMPLATE_BN = """\
 
 প্রশ্ন: ডিজিটাল নিরাপত্তা আইন ২০১৮-এর অধীনে ডিজিটাল জালিয়াতির শাস্তি কী?
 
-ধারা ১৭ অনুযায়ী ডিজিটাল জালিয়াতির শাস্তি সর্বোচ্চ পাঁচ বছরের কারাদণ্ড বা পাঁচ লক্ষ টাকা জরিমানা অথবা উভয় দণ্ড। {cite:dsa-s17-bn}
+ধারা ১৭ অনুযায়ী ডিজিটাল জালিয়াতির শাস্তি সর্বোচ্চ পাঁচ বছরের কারাদণ্ড বা পাঁচ লক্ষ টাকা জরিমানা অথবা উভয় দণ্ড। {{cite:dsa-s17-bn}}
 
 **আইনি ভিত্তি:**
-"যে কোনো ব্যক্তি প্রতারণার উদ্দেশ্যে কম্পিউটার বা ডিজিটাল ডিভাইস ব্যবহার করে অন্য ব্যক্তিকে ক্ষতিগ্রস্ত করলে সর্বোচ্চ পাঁচ বছর কারাদণ্ড বা পাঁচ লক্ষ টাকা অর্থদণ্ড বা উভয় দণ্ডে দণ্ডিত হবেন।" {cite:dsa-s17-bn}
+"যে কোনো ব্যক্তি প্রতারণার উদ্দেশ্যে কম্পিউটার বা ডিজিটাল ডিভাইস ব্যবহার করে অন্য ব্যক্তিকে ক্ষতিগ্রস্ত করলে সর্বোচ্চ পাঁচ বছর কারাদণ্ড বা পাঁচ লক্ষ টাকা অর্থদণ্ড বা উভয় দণ্ডে দণ্ডিত হবেন।" {{cite:dsa-s17-bn}}
 
 **শর্ত ও পরিধি:**
 - প্রতারণার অভিপ্রায় থাকতে হবে
