@@ -13,9 +13,11 @@ from typing import Any
 
 def _load_registry() -> dict[str, Any]:
     from app.prompts.families.legal_answer import v1 as legal_answer_v1
+    from app.prompts.families.legal_answer import v2 as legal_answer_v2
 
     return {
         "legal_answer:v1": legal_answer_v1,
+        "legal_answer:v2": legal_answer_v2,
     }
 
 
@@ -27,7 +29,7 @@ def resolve(family: str, version: str) -> Any:
 
     Args:
         family: Prompt family name (e.g. ``legal_answer``).
-        version: Version string (e.g. ``v1``).
+        version: Version string (e.g. ``v2``).
 
     Returns:
         A module with a ``render()`` function and a ``VERSION`` attribute.
