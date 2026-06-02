@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { cancelIngestAct, triggerIngestAct } from "@/api/admin";
 import type { AdminActSummary, IngestionRunSummary } from "@/types/api";
@@ -47,6 +48,11 @@ function LangStatus({
   );
 }
 
+function snapshotDate(run: IngestionRunSummary | null | undefined): string {
+  if (!run || run.status !== "succeeded" || !run.started_at) return "—";
+  return run.started_at.slice(0, 10);
+}
+
 export function SourcesRow({ act }: SourcesRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [queued, setQueued] = useState(false);
@@ -57,11 +63,18 @@ export function SourcesRow({ act }: SourcesRowProps) {
     act.last_run_bn?.status === "running" ||
     act.last_run_en?.status === "running";
 
-  // Clear queued state once the server reflects a non-never status
   const serverHasRun = act.last_run_bn !== null || act.last_run_en !== null;
   if (queued && serverHasRun) {
     setQueued(false);
   }
+
+  const chunksTotal =
+    (act.last_run_bn?.chunks_created ?? 0) + (act.last_run_en?.chunks_created ?? 0);
+
+  const snapshot = snapshotDate(act.last_run_bn ?? act.last_run_en);
+
+  const isIngested =
+    act.last_run_bn?.status === "succeeded" || act.last_run_en?.status === "succeeded";
 
   const ingest = useMutation({
     mutationFn: () => triggerIngestAct(act.slug),
@@ -116,8 +129,24 @@ export function SourcesRow({ act }: SourcesRowProps) {
         </td>
         <LangStatus run={act.last_run_bn} queued={queued} />
         <LangStatus run={act.last_run_en} queued={queued} />
+        <td className="px-3 py-3">
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {chunksTotal > 0 ? chunksTotal.toLocaleString() : "—"}
+          </span>
+        </td>
+        <td className="px-3 py-3">
+          <span className="text-xs font-mono text-muted-foreground">{snapshot}</span>
+        </td>
         <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1.5">
+            {isIngested && (
+              <Button size="sm" variant="ghost" asChild>
+                <Link to={`/acts/${act.slug}/read`}>
+                  <i className="ti ti-book text-sm" />
+                  Read
+                </Link>
+              </Button>
+            )}
             {isRunning ? (
               <Button
                 size="sm"
@@ -145,7 +174,7 @@ export function SourcesRow({ act }: SourcesRowProps) {
 
       {expanded && (
         <tr className="border-b border-border bg-muted/10">
-          <td colSpan={6} className="px-6 py-4">
+          <td colSpan={8} className="px-6 py-4">
             <div className="grid grid-cols-2 gap-6">
               {[
                 { lang: "Bengali (BN)", run: act.last_run_bn },

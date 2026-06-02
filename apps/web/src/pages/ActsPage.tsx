@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cancelIngestAll, getAdminActs, triggerIngestAll } from "@/api/admin";
 import type { AdminActSummary } from "@/types/api";
@@ -26,7 +25,6 @@ export function ActsPage() {
   const actsQ = useQuery({
     queryKey: ["admin", "acts"],
     queryFn: getAdminActs,
-    // Poll every 3s while any act is running; every 30s otherwise
     refetchInterval: (query) => {
       const acts = query.state.data as AdminActSummary[] | undefined;
       const anyRunning = acts?.some(
@@ -55,11 +53,20 @@ export function ActsPage() {
     onError: () => toast.error("Failed to cancel ingestion"),
   });
 
-  const anyRunning = (actsQ.data ?? []).some(
+  const acts = actsQ.data ?? [];
+  const anyRunning = acts.some(
     (a) => a.last_run_bn?.status === "running" || a.last_run_en?.status === "running",
   );
+  const fullyIngested = acts.filter(
+    (a) => a.last_run_bn?.status === "succeeded" && a.last_run_en?.status === "succeeded",
+  ).length;
+  const totalChunks = acts.reduce(
+    (sum, a) =>
+      sum + (a.last_run_bn?.chunks_created ?? 0) + (a.last_run_en?.chunks_created ?? 0),
+    0,
+  );
 
-  const filtered = (actsQ.data ?? []).filter(
+  const filtered = acts.filter(
     (a) =>
       a.short_name.toLowerCase().includes(search.toLowerCase()) ||
       a.full_name_en.toLowerCase().includes(search.toLowerCase()),
@@ -69,15 +76,9 @@ export function ActsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Acts Registry"
-        description="Statutory corpus — ingestion state per language."
+        description="Statutory corpus — ingestion state, coverage, and chunk counts per language."
         actions={
           <>
-            <Button size="sm" variant="ghost" asChild>
-              <Link to="/corpus">
-                <i className="ti ti-timeline text-sm" />
-                Coverage
-              </Link>
-            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -109,6 +110,55 @@ export function ActsPage() {
         }
       />
 
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+            Registered Acts
+          </p>
+          <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">
+            {actsQ.isLoading ? <Skeleton className="h-7 w-8" /> : acts.length}
+          </p>
+        </div>
+        <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+            Fully ingested
+          </p>
+          <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">
+            {actsQ.isLoading ? (
+              <Skeleton className="h-7 w-10" />
+            ) : (
+              `${fullyIngested} / ${acts.length}`
+            )}
+          </p>
+        </div>
+        <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+            Total chunks
+          </p>
+          <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">
+            {actsQ.isLoading ? (
+              <Skeleton className="h-7 w-14" />
+            ) : (
+              totalChunks.toLocaleString()
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* Temporal limits note */}
+      <div className="rounded-xl border border-warning/30 bg-warning/8 px-4 py-3">
+        <div className="flex items-start gap-2">
+          <i className="ti ti-info-circle text-warning text-base mt-0.5 shrink-0" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <strong className="text-warning">Temporal limits.</strong> Each Act is indexed from its
+            snapshot date. Provisions amended after that date may not be reflected. Consult{" "}
+            <span className="font-mono">bdlaws.minlaw.gov.bd</span> directly or re-trigger
+            ingestion.
+          </p>
+        </div>
+      </div>
+
       <div className="relative max-w-sm">
         <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none" />
         <Input
@@ -128,6 +178,8 @@ export function ActsPage() {
               <TableHead>Status</TableHead>
               <TableHead>BN</TableHead>
               <TableHead>EN</TableHead>
+              <TableHead>Chunks</TableHead>
+              <TableHead>Snapshot</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -135,7 +187,7 @@ export function ActsPage() {
             {actsQ.isLoading &&
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  <td colSpan={6} className="px-3 py-2.5">
+                  <td colSpan={8} className="px-3 py-2.5">
                     <Skeleton className="h-5 w-full" />
                   </td>
                 </TableRow>
@@ -145,7 +197,7 @@ export function ActsPage() {
             ))}
             {!actsQ.isLoading && filtered.length === 0 && (
               <TableRow>
-                <td colSpan={6} className="px-3 py-12 text-center">
+                <td colSpan={8} className="px-3 py-12 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <i className="ti ti-books-off text-2xl" />
                     <span className="text-sm">
