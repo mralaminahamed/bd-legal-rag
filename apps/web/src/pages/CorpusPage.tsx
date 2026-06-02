@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getAdminActs } from "@/api/admin";
 import { getActs } from "@/api/query";
@@ -64,6 +65,16 @@ function ActRow({
           <Badge variant={statusVariant(status)} className="capitalize text-[10px]">
             {statusLabel(status)}
           </Badge>
+          {(bnOk || enOk) && (
+            <Link
+              to={`/acts/${summary.slug}/read`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+            >
+              <i className="ti ti-book text-[10px]" />
+              Read
+            </Link>
+          )}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">{summary.full_name_en}</p>
         {ministry && (

@@ -3,6 +3,7 @@ import { createBrowserRouter, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { ActsPage } from "@/pages/ActsPage";
+import { ActReaderPage } from "@/pages/ActReaderPage";
 import { CorpusPage } from "@/pages/CorpusPage";
 import { PlaygroundPage } from "@/pages/PlaygroundPage";
 import { ThreadsPage } from "@/pages/ThreadsPage";
@@ -22,6 +23,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "acts", element: <ActsPage /> },
+      { path: "acts/:slug/read", element: <ActReaderPage /> },
+      { path: "acts/:slug/read/:sectionId", element: <ActReaderPage /> },
       { path: "corpus", element: <CorpusPage /> },
       { path: "threads", element: <ThreadsPage /> },
       { path: "playground", element: <PlaygroundRedirect /> },

@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { ActSummary, FeedbackResponse, QueryResponse, ThreadListResponse, ThreadResponse } from "@/types/api";
+import type { ActStructure, ActSummary, FeedbackResponse, QueryResponse, SectionDetail, ThreadListResponse, ThreadResponse } from "@/types/api";
 
 export async function postQuery(params: {
   question: string;
@@ -34,5 +34,17 @@ export async function listThreads(limit = 50, offset = 0): Promise<ThreadListRes
   const { data } = await apiClient.get<ThreadListResponse>("/api/v1/threads", {
     params: { limit, offset },
   });
+  return data;
+}
+
+export async function getActStructure(slug: string): Promise<ActStructure> {
+  const { data } = await apiClient.get<ActStructure>(`/api/v1/acts/${slug}/structure`);
+  return data;
+}
+
+export async function getSectionDetail(slug: string, sectionId: string): Promise<SectionDetail> {
+  const { data } = await apiClient.get<SectionDetail>(
+    `/api/v1/acts/${slug}/sections/${sectionId}`,
+  );
   return data;
 }
