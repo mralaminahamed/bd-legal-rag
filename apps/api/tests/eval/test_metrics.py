@@ -12,7 +12,6 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-
 from eval.metrics import (
     EvalRecord,
     EvalResult,
@@ -23,7 +22,6 @@ from eval.metrics import (
     language_routing_accuracy,
     section_citation_accuracy,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

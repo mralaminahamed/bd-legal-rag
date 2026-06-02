@@ -15,7 +15,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-
 from eval.harness import (
     check_thresholds,
     compute_metrics,
@@ -25,7 +24,6 @@ from eval.harness import (
     persist_run,
 )
 from eval.metrics import EvalRecord, EvalResult, Pair
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -99,7 +97,10 @@ class TestLoadGoldenDataset:
         assert len(records) >= 60
 
     def test_at_least_ten_advice_seeking(self) -> None:
-        """At least 10 records must be advice-seeking (should_decline=True, category advice_seeking)."""
+        """At least 10 records must be advice-seeking.
+
+        should_decline=True with category advice_seeking.
+        """
         records = load_golden_dataset()
         advice = [r for r in records if r.category == "advice_seeking"]
         assert len(advice) >= 10
