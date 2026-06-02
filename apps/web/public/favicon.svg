@@ -1,31 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#233468"/>
-      <stop offset="100%" stop-color="#1a2744"/>
+      <stop offset="0%" stop-color="#1e3a6e"/>
+      <stop offset="100%" stop-color="#111827"/>
     </linearGradient>
   </defs>
 
-  <!-- Badge background -->
-  <rect width="32" height="32" rx="7.5" fill="url(#bg)"/>
+  <rect width="32" height="32" rx="8" fill="url(#bg)"/>
 
   <!-- Scales beam -->
-  <line x1="8" y1="11" x2="24" y2="11" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="5" y1="11" x2="27" y2="11" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Pivot — indigo accent at fulcrum -->
+  <circle cx="16" cy="11" r="2.5" fill="#6366f1"/>
+  <circle cx="16" cy="11" r="1.2" fill="white" fill-opacity="0.7"/>
+
   <!-- Center post -->
-  <line x1="16" y1="11" x2="16" y2="25" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="16" y1="13" x2="16" y2="25" stroke="rgba(255,255,255,0.85)" stroke-width="1.4" stroke-linecap="round"/>
+
   <!-- Base -->
-  <line x1="12" y1="25" x2="20" y2="25" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="11" y1="25" x2="21" y2="25" stroke="rgba(255,255,255,0.85)" stroke-width="1.5" stroke-linecap="round"/>
 
-  <!-- Left pan -->
-  <line x1="8" y1="11" x2="6.5" y2="18" stroke="rgba(255,255,255,0.75)" stroke-width="1.3" stroke-linecap="round"/>
-  <path d="M4 18 Q6.5 21.5 9 18" stroke="rgba(255,255,255,0.9)" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+  <!-- Left chain + pan -->
+  <line x1="5" y1="11" x2="4" y2="18.5" stroke="rgba(255,255,255,0.6)" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M1.5 18.5 Q4 22 6.5 18.5" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
 
-  <!-- Right pan -->
-  <line x1="24" y1="11" x2="25.5" y2="18" stroke="rgba(255,255,255,0.75)" stroke-width="1.3" stroke-linecap="round"/>
-  <path d="M23 18 Q25.5 21.5 28 18" stroke="rgba(255,255,255,0.9)" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-
-  <!-- RAG graph nodes -->
-  <circle cx="25" cy="5.5" r="2" fill="#818cf8"/>
-  <circle cx="29" cy="9.5" r="1.6" fill="#6366f1"/>
-  <line x1="25" y1="5.5" x2="29" y2="9.5" stroke="#818cf8" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- Right chain + pan -->
+  <line x1="27" y1="11" x2="28" y2="18.5" stroke="rgba(255,255,255,0.6)" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M25.5 18.5 Q28 22 30.5 18.5" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
 </svg>
