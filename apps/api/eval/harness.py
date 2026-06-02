@@ -278,22 +278,40 @@ def persist_run(
     return path
 
 
-def load_previous_run(*, runs_dir: Path | None = None) -> dict[str, Any] | None:
-    """Load the most recent harness run from the runs directory.
+def load_previous_run(
+    prompt_version: str,
+    runs_dir: Path = _RUNS_DIR,
+    *,
+    exclude: Path | None = None,
+) -> EvalRun | None:
+    """Load the most recent harness run matching a prompt version.
 
     Args:
+        prompt_version: The ``prompt_version`` field value to filter on.
         runs_dir: Directory to search; defaults to ``eval/runs/``.
+        exclude: Path to skip (e.g. the file just written in the current run).
 
     Returns:
-        dict[str, Any] | None: Parsed JSON of the latest run, or ``None``
-        when no run files exist.
+        EvalRun | None: The most recent matching run, or ``None`` when no
+        matching run files exist.
     """
-    rdir = runs_dir or _RUNS_DIR
-    files = sorted(rdir.glob("*.json"))
-    if not files:
-        return None
-    result: dict[str, Any] = json.loads(files[-1].read_text(encoding="utf-8"))
-    return result
+    files = sorted(runs_dir.glob("*.json"), reverse=True)
+    for f in files:
+        if exclude is not None and f == exclude:
+            continue
+        data: dict[str, Any] = json.loads(f.read_text(encoding="utf-8"))
+        if data.get("prompt_version") != prompt_version:
+            continue
+        return EvalRun(
+            timestamp=data["timestamp"],
+            prompt_version=data["prompt_version"],
+            reranker_version=data["reranker_version"],
+            retrieval_config=data["retrieval_config"],
+            metrics=data["metrics"],
+            record_count=data["record_count"],
+            run_id=data["run_id"],
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------

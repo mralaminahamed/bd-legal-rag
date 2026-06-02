@@ -299,7 +299,7 @@ class TestPersistRun:
         """load_previous_run returns None when runs_dir has no JSON files."""
         runs_dir = tmp_path / "runs"
         runs_dir.mkdir()
-        assert load_previous_run(runs_dir=runs_dir) is None
+        assert load_previous_run("v1", runs_dir) is None
 
     def test_load_previous_run_returns_latest(self, tmp_path: Path) -> None:
         """load_previous_run returns the data dict from the most recent file."""
@@ -334,9 +334,9 @@ class TestPersistRun:
         latest_data = json.loads(all_files[-1].read_text())
         assert latest_data["metrics"]["section_citation_accuracy"] == pytest.approx(0.91)
 
-        result = load_previous_run(runs_dir=runs_dir)
+        result = load_previous_run("v1", runs_dir)
         assert result is not None
-        assert result["metrics"]["section_citation_accuracy"] == pytest.approx(0.91)
+        assert result.metrics["section_citation_accuracy"] == pytest.approx(0.91)
 
     def test_persist_run_returns_path_object(self, tmp_path: Path) -> None:
         """persist_run returns a Path pointing to the written file."""
