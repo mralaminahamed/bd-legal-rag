@@ -1,4 +1,4 @@
-// App layout: collapsible navy sidebar + max-width content. Author: Al Amin Ahamed.
+// App layout — collapsible sidebar + max-width content. Author: Al Amin Ahamed.
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { Logo } from "@/components/Logo";
@@ -30,20 +30,19 @@ function NavItem({
     <NavLink
       to={to}
       end={end}
-      title={collapsed ? label : undefined}
+      title={label}
       className={({ isActive }) =>
         cn(
-          "flex items-center py-2 text-[13px] font-medium rounded-r-lg",
-          "border-l-2 -ml-2 transition-colors cursor-pointer select-none",
-          collapsed ? "justify-center px-3" : "gap-2.5 px-4",
+          "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all",
+          collapsed && "justify-center px-0 w-9 mx-auto",
           isActive
-            ? "bg-nav-active-bg text-nav-text-active border-l-primary"
-            : "text-nav-text border-l-transparent hover:bg-white/5 hover:text-[#8eb0d4]",
+            ? "bg-white/10 text-white"
+            : "text-[#5c7a9e] hover:bg-white/6 hover:text-[#a8c4e0]",
         )
       }
     >
-      <i className={`ti ${icon} text-base shrink-0`} />
-      {!collapsed && <span className="flex-1 truncate">{label}</span>}
+      <i className={`ti ${icon} text-[15px] shrink-0`} />
+      {!collapsed && <span className="flex-1 truncate leading-none">{label}</span>}
     </NavLink>
   );
 }
@@ -62,47 +61,42 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex min-h-screen w-full bg-background">
       {/* Sidebar */}
       <aside
         className={cn(
           "flex flex-col shrink-0 transition-[width] duration-200 ease-in-out overflow-x-hidden",
-          collapsed ? "w-14" : "w-54",
+          collapsed ? "w-[60px]" : "w-[220px]",
         )}
         style={{ backgroundColor: "var(--nav)" }}
       >
-        {/* Logo */}
+        {/* Logo row */}
         <div
           className={cn(
-            "py-4 border-b flex items-center gap-2.5 shrink-0",
-            collapsed ? "justify-center px-0" : "px-4",
+            "flex items-center shrink-0 h-14",
+            collapsed ? "justify-center px-0" : "px-4 gap-2.5",
           )}
-          style={{ borderColor: "var(--nav-border)" }}
         >
-          <Logo size={28} />
+          <div className="shrink-0">
+            <Logo size={26} />
+          </div>
           {!collapsed && (
-            <>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-bold text-[#e0eaf8] tracking-tight leading-none">
-                  BD Legal
-                </div>
-                <div className="text-[9px] font-bold text-primary tracking-[1.5px] uppercase mt-1">
-                  RAG
-                </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-bold text-white/90 tracking-tight leading-tight">
+                BD Legal
               </div>
-              <button
-                onClick={toggleCollapsed}
-                title="Collapse sidebar"
-                className="shrink-0 text-nav-text hover:text-[#8eb0d4] transition-colors"
-              >
-                <i className="ti ti-chevrons-left text-sm" />
-              </button>
-            </>
+              <div className="text-[10px] font-semibold text-white/30 tracking-[0.12em] uppercase leading-tight mt-px">
+                RAG
+              </div>
+            </div>
           )}
         </div>
 
+        {/* Divider */}
+        <div className="mx-3 h-px bg-white/6 shrink-0" />
+
         {/* Nav */}
-        <nav className="flex-1 px-2 py-3 flex flex-col gap-px overflow-y-auto overflow-x-hidden">
+        <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden">
           {NAV.map((item) => (
             <NavItem
               key={item.to}
@@ -113,40 +107,36 @@ export function AppShell() {
               collapsed={collapsed}
             />
           ))}
-
-          <div className="mt-auto pt-2">
-            <button
-              onClick={toggleCollapsed}
-              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className={cn(
-                "flex items-center w-full py-2 text-[13px] font-medium rounded-r-lg",
-                "border-l-2 border-l-transparent -ml-2 transition-colors",
-                "text-nav-text hover:bg-white/5 hover:text-[#8eb0d4]",
-                collapsed ? "justify-center px-3" : "gap-2.5 px-4",
-              )}
-            >
-              <i
-                className={cn(
-                  "ti text-sm shrink-0",
-                  collapsed ? "ti-chevrons-right" : "ti-chevrons-left",
-                )}
-              />
-              {!collapsed && <span className="flex-1 text-xs">Collapse</span>}
-            </button>
-          </div>
         </nav>
+
+        {/* Bottom — collapse toggle */}
+        <div className="mx-3 h-px bg-white/6 shrink-0" />
+        <div className={cn("flex shrink-0 h-11 items-center", collapsed ? "justify-center" : "px-2")}>
+          <button
+            onClick={toggleCollapsed}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-medium text-[#5c7a9e]",
+              "hover:bg-white/6 hover:text-[#a8c4e0] transition-all w-full",
+              collapsed && "justify-center px-0 w-9 mx-auto",
+            )}
+          >
+            <i className={cn("ti text-[15px] shrink-0", collapsed ? "ti-layout-sidebar-left-expand" : "ti-layout-sidebar-left-collapse")} />
+            {!collapsed && <span className="flex-1 truncate">Collapse</span>}
+          </button>
+        </div>
       </aside>
 
       {/* Main */}
       <div className="flex flex-1 min-w-0 flex-col overflow-y-auto max-h-screen">
-        {/* Sticky top bar */}
-        <header className="sticky top-0 z-10 flex h-12 items-center gap-3 border-b border-border bg-card/80 px-6 backdrop-blur-sm shrink-0">
+        {/* Top bar */}
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-6 backdrop-blur-sm shrink-0">
           <div className="flex-1" />
           <ConnectionBadge />
           <ThemeToggle />
         </header>
 
-        {/* Page content — max width constraint */}
+        {/* Page content */}
         <main className="mx-auto w-full max-w-[1100px] p-6">
           <Outlet />
         </main>
