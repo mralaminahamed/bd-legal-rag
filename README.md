@@ -10,41 +10,59 @@
 
 **AI-powered legal research assistant grounded in Bangladeshi statute law.**
 
-Ingests Acts from `bdlaws.minlaw.gov.bd`, stores provision revisions with effective-date windows, and answers questions via a bilingual RAG pipeline in Bengali and English. Every response carries a mandatory disclaimer and canonical section citations.
+Ingests Acts from `bdlaws.minlaw.gov.bd`, stores provision revisions with effective-date windows, and answers questions via a bilingual RAG pipeline in Bengali and English. Supports five query modes: legal Q&A, legal advice, act summary, section listing, and act explanation. Every response carries a mandatory disclaimer and canonical section citations linked to the bdlaws source page.
 
-> **This is an informational research tool, not legal advice.** The system declines advice-seeking queries and never states a legal conclusion in its own voice. Every response path — including cache-hits, declines, and errors — appends the active disclaimer.
-
-> **Status:** v1.0.0 — all phases complete · **16 Acts** indexed · 1,619+ bilingual chunks · query + stream + admin API live
+> **Status:** v1.0 · 16 Acts indexed · bilingual (BN authoritative + EN reference) · query + stream + admin API live
 
 ---
 
 ## What is in the corpus
 
-16 Acts indexed as of 2026-06-02. Ingestion runs against the live bdlaws portal so the snapshot date for each Act can be checked in the **Corpus Coverage** page (`/corpus`) of the admin console.
+16 Acts indexed, available in Bengali (authoritative) and English (reference translation).
 
-**Original 5 v1.0 Acts:**
+| Act | Year | bdlaws ID |
+|---|---|---|
+| The Penal Code | 1860 | act-11 |
+| The Evidence Act | 1872 | act-24 |
+| The Contract Act | 1872 | act-26 |
+| The Specific Relief Act | 1877 | act-36 |
+| The Negotiable Instruments Act | 1881 | act-46 |
+| The Transfer of Property Act | 1882 | act-48 |
+| The Code of Criminal Procedure | 1898 | act-75 |
+| The Code of Civil Procedure | 1908 | act-86 |
+| The Limitation Act | 1908 | act-88 |
+| The Partnership Act | 1932 | act-157 |
+| The Constitution of Bangladesh | 1972 | act-367 |
+| The Bangladesh Labour Act | 2006 | act-952 |
+| The Value Added Tax and Supplementary Duty Act | 2012 | act-1106 |
+| The Digital Security Act | 2018 | act-1261 |
+| The Companies Act | 1994 | act-788 |
+| The Income Tax Act | 2023 | act-1429 |
 
-| Act | Year |
-|---|---|
-| The Companies Act | 1994 |
-| The Income Tax Act | 2023 |
-| The Value Added Tax and Supplementary Duty Act | 2012 |
-| The Bangladesh Labour Act | 2006 |
-| The Digital Security Act | 2018 |
-
-**Additional 11 Acts (added Phase 8):** Penal Code 1860, Evidence Act 1872, Contract Act 1872, Specific Relief Act 1877, Negotiable Instruments Act 1881, Transfer of Property Act 1882, Code of Criminal Procedure 1898, Code of Civil Procedure 1908, Limitation Act 1908, Partnership Act 1932, Constitution of Bangladesh 1972.
-
-All Acts available in Bengali (authoritative) and English (reference translation). See `config/acts/` for YAML registrations and `config/bdlaws-acts-index.json` for the full 1,556-Act bdlaws index.
+YAML registrations: `config/acts/`. Full 1,556-Act bdlaws index: `config/bdlaws-acts-index.json`.
 
 ---
 
 ## How it works
 
-1. **Ingestion** — Celery workers crawl bdlaws via `app/ingestion/crawler.py`, parse the statutory hierarchy with `parser.py`, and store `provisions` + `provision_revisions` keyed by effective date.
-2. **Embedding** — `app/processing/embedder.py` embeds each chunk with Cohere `embed-multilingual-v3.0` (1024d, `vector`) when a Cohere key is present, or Ollama `qwen3-embedding:4b` (2560d, `halfvec`) otherwise. The `input_type` discriminator (`search_document` vs `search_query`) is enforced at the type level.
-3. **Retrieval** — `app/rag/retriever.py` runs HNSW cosine vector search (pgvector) + Postgres FTS (`content_tsv`, `simple` config for Bengali) and merges via Reciprocal Rank Fusion. Cohere `rerank-multilingual-v3.0` is the mandatory final stage — degrades to `LOW` confidence when unreachable.
-4. **Generation** — `app/rag/generator.py` runs the fixed pipeline: cache → decline gate → cost circuit breaker → LLM (Claude / OpenAI / Ollama) → citation validator → guardrails → disclaimer injection.
-5. **Safety** — The `decline_gate` detects advice-seeking patterns in Bengali and English. The `guardrails` scanner blocks normative conclusions in the system's voice. `disclaimer.inject()` runs on every code path.
+1. **Snapshot** — `app/ingestion/snapshot.py` crawls `bdlaws.minlaw.gov.bd` and saves raw HTML to `data/raw/{slug}/{lang}.html`. Subsequent ingestions read from disk — no network calls until you `--force`.
+2. **Ingestion** — Celery workers parse the statutory hierarchy, store `provisions` + `provision_revisions` keyed by effective date. Content-hash comparison skips re-embedding unchanged text.
+3. **Embedding** — `app/processing/embedder.py` uses Cohere `embed-multilingual-v3.0` (1024d) when a key is present, or Ollama `qwen3-embedding:4b` (2560d, `halfvec`) otherwise. The `input_type` discriminator (`search_document` vs `search_query`) is enforced at the type level.
+4. **Retrieval** — HNSW cosine vector search (pgvector) + Postgres FTS (`simple` config for Bengali) merged via Reciprocal Rank Fusion. Cohere `rerank-multilingual-v3.0` is the mandatory final stage.
+5. **Intent routing** — `app/rag/intent.py` classifies every query into one of five intents and routes to the correct prompt and handler.
+6. **Generation** — `app/rag/generator.py`: cache → intent route → decline gate → cost circuit breaker → LLM → postprocessor → citation resolver → guardrails → disclaimer injection.
+
+---
+
+## Query modes
+
+| Query type | Example | Handler |
+|---|---|---|
+| **Legal Q&A** | "What is the penalty for digital fraud?" | Citation-based answer from retrieved provisions |
+| **Legal advice** | "Can I sue my employer for unpaid wages?" | Practical guidance framed as "Under Section X…" |
+| **Act summary** | "Summarize the Labour Act" | Prose summary synthesised from top provisions |
+| **Section list** | "List sections of the Companies Act" | DB query — no LLM, instant |
+| **Act explain** | "What does the VAT Act cover?" | Overview of scope, applicability, key provisions |
 
 ---
 
@@ -56,9 +74,9 @@ All Acts available in Bengali (authoritative) and English (reference translation
 | Workers | Celery 5 · Redis · httpx async |
 | Database | PostgreSQL 16 · pgvector 0.8.2 · HNSW cosine · `halfvec(2560)` or `vector(1024)` |
 | Embeddings | Cohere `embed-multilingual-v3.0` (1024d) · Ollama `qwen3-embedding:4b` (2560d, local fallback) |
-| LLM | Claude `claude-sonnet-4-6` · OpenAI `gpt-4o-mini` · Ollama `gemma4:e2b` |
+| LLM | Claude `claude-sonnet-4-6` · OpenAI `gpt-4o-mini` · Ollama `gemma4:e2b` (default) |
 | Reranker | Cohere `rerank-multilingual-v3.0` |
-| Frontend | React 19 · TypeScript 6 · Vite 8 · Tailwind CSS v4 · TanStack Query 5 |
+| Frontend | React 19 · TypeScript · Vite · Tailwind CSS v4 · TanStack Query 5 |
 | Infra | Docker Compose · GitHub Actions CI/Eval/Deploy · Caddy (prod TLS) |
 
 ---
@@ -69,15 +87,14 @@ All Acts available in Bengali (authoritative) and English (reference translation
 - Python 3.12+ with [uv](https://docs.astral.sh/uv/) (`pip install uv`)
 - Node.js 24+ with [pnpm](https://pnpm.io/) (`npm i -g pnpm`)
 
-**For local-only dev (no cloud keys needed):**
+**Local dev (no cloud keys needed):**
 - [Ollama](https://ollama.com) running on the host with `gemma4:e2b` and `qwen3-embedding:4b` pulled
 
 **For production quality retrieval:**
 - `BDRAG_COHERE_API_KEY` — embeddings + mandatory reranking
 
-**Optional cloud LLM providers:**
-- `BDRAG_ANTHROPIC_API_KEY` — Claude
-- `BDRAG_OPENAI_API_KEY` — OpenAI
+**Optional cloud LLM:**
+- `BDRAG_ANTHROPIC_API_KEY` — Claude · `BDRAG_OPENAI_API_KEY` — OpenAI
 
 ---
 
@@ -88,78 +105,79 @@ All Acts available in Bengali (authoritative) and English (reference translation
 git clone https://github.com/mralaminahamed/bd-legal-rag.git
 cd bd-legal-rag
 
-# 2. Create .env (gitignored)
+# 2. Create .env at repo root (gitignored)
 cat > .env << 'EOF'
 BDRAG_DEFAULT_PROVIDER=ollama
 BDRAG_OLLAMA_MODEL=gemma4:e2b
 BDRAG_OLLAMA_EMBED_MODEL=qwen3-embedding:4b
-BDRAG_ADMIN_BEARER_TOKEN=$(openssl rand -hex 32)
+BDRAG_ADMIN_BEARER_TOKEN=dev-admin-token
 BDRAG_DECLINE_RECALL_FLOOR=0.001
 VITE_API_BASE_URL=http://localhost:8000
 VITE_ADMIN_TOKEN=dev-admin-token
 EOF
 
-# 3. Pull Ollama models (host, not container)
+# 3. Pull Ollama models (on host, not in container)
 ollama pull gemma4:e2b
 ollama pull qwen3-embedding:4b
 
 # 4. Start the stack
 docker compose up -d
 
-# 5. Run migrations + seed sample data
+# 5. Run migrations
 docker compose exec app alembic upgrade head
+
+# 6. Seed sample data (optional — populates dashboard with fake data)
 cd apps/api && uv run python -m app.seeders --fresh
 
-# 6. Bootstrap + ingest all 16 Acts (crawls bdlaws.minlaw.gov.bd; ~20 min)
+# 7. Bootstrap Act registrations from config/acts/*.yaml
 docker compose exec app python -m app.ingestion.registry bootstrap
-curl -X POST http://localhost:8000/api/v1/admin/acts/ingest \
-  -H "Authorization: Bearer dev-admin-token"
 
-# 7. Watch ingestion
-docker compose logs -f worker | grep -E "succeeded|failed|chunks_created"
+# 8. Snapshot all 16 Acts from bdlaws (saves to data/raw/ — ~2 min)
+cd apps/api && uv run python -m app.ingestion.snapshot
 
-# 8. Open the operator console
+# 9. Ingest all Acts from snapshots (parse + embed — ~30-60 min for all 16)
+cd apps/api && uv run python -m app.ingestion.registry ingest-all
+
+# 10. Watch ingestion progress
+docker compose logs -f worker | grep -E "succeeded|failed|chunks"
+
+# 11. Open the console
 open http://localhost:8080
 ```
 
 **Services:**
 
-| Service | URL | Notes |
-|---|---|---|
-| API | http://localhost:8000 | Swagger UI at `/docs` |
-| Admin console | http://localhost:8080 | Dashboard, Acts, Corpus Coverage, Playground, Settings |
-| PostgreSQL | `localhost:5432` | pgvector database (db: `bdrag`, user: `bdrag`) |
-| Redis | `localhost:6379` | Celery broker + response cache |
+| Service | URL |
+|---|---|
+| Admin console | http://localhost:8080 |
+| API + Swagger | http://localhost:8000 · http://localhost:8000/docs |
+| PostgreSQL | `localhost:5432` (db: `bdrag`, user: `bdrag`) |
+| Redis | `localhost:6379` |
 
 **Key environment variables:**
 
 ```bash
-# Generation
 BDRAG_DEFAULT_PROVIDER=ollama          # anthropic | openai | ollama
 BDRAG_OLLAMA_MODEL=gemma4:e2b
 BDRAG_OLLAMA_EMBED_MODEL=qwen3-embedding:4b
-
-# Production embeddings + reranking
-BDRAG_COHERE_API_KEY=co-...
-
-# Admin API (required)
+BDRAG_COHERE_API_KEY=co-...            # enables Cohere embeddings + reranking
 BDRAG_ADMIN_BEARER_TOKEN=...           # generate: openssl rand -hex 32
-
-# Decline gate (calibrated for RRF score range ~0.025 max)
-BDRAG_DECLINE_RECALL_FLOOR=0.001
+BDRAG_DECLINE_RECALL_FLOOR=0.001       # calibrated for RRF score range ~0.025 max
+BDRAG_ACTIVE_PROMPT_VERSION=v2         # v1 | v2 (v2 = structured anti-slop)
+BDRAG_DECLINE_GATE_ENABLED=true        # set false to allow all query types
 ```
 
 ---
 
-## Admin console pages
+## Console pages
 
 | Page | Route | Description |
 |---|---|---|
 | Dashboard | `/` | Service health, 24h metrics, recent queries |
-| Acts Registry | `/acts` | 16 registered Acts; trigger ingestion per-Act or all |
-| Corpus Coverage | `/corpus` | BN/EN coverage, chunk counts, snapshot dates, temporal limits |
-| Playground | `/playground/:threadId` | Bilingual chat — each conversation gets a UUID sub-route |
-| Settings | `/settings` | LLM provider override, health probes |
+| Acts Registry | `/acts` | 16 Acts with ingestion state, chunk counts, snapshot dates; trigger per-Act or all |
+| Playground | `/playground/:threadId` | Bilingual chat — UUID thread per conversation, language toggle in topbar |
+| Conversations | `/threads` | All threads with message count and last activity |
+| Act Reader | `/acts/:slug/read/:sectionId` | Section-by-section ebook reader with TOC, prev/next, bdlaws source links |
 
 ---
 
@@ -169,17 +187,22 @@ BDRAG_DECLINE_RECALL_FLOOR=0.001
 |---|---|---|---|
 | `GET` | `/health` | — | Liveness + DB/Redis status |
 | `POST` | `/api/v1/query` | rate-limited | Grounded answer with citations + disclaimer |
-| `POST` | `/api/v1/query/stream` | rate-limited | SSE: `token` events then `final` with citation-validated content |
-| `POST` | `/api/v1/feedback` | rate-limited | Bind `helpful`/`not_helpful`/`wrong_citation`/`out_of_scope` to a `query_id` |
-| `GET` | `/api/v1/acts` | — | List registered Acts |
-| `GET` | `/api/v1/acts/{slug}/structure` | — | Statutory tree: Part → Chapter → Section |
-| `GET` | `/api/v1/acts/{slug}/sections/{id}` | — | Provision text + hierarchy path + disclaimer |
-| `POST` | `/api/v1/admin/acts/ingest` | bearer | Trigger ingestion for all Acts (1 task per act × language) |
+| `POST` | `/api/v1/query/stream` | rate-limited | SSE: `token` events then `final` event |
+| `POST` | `/api/v1/feedback` | rate-limited | Bind `helpful`/`not_helpful`/`out_of_scope` to a `query_id` |
+| `GET` | `/api/v1/acts` | — | List all registered Acts |
+| `GET` | `/api/v1/acts/{slug}/structure` | — | Provision tree: Part → Chapter → Section (Redis-cached 1h) |
+| `GET` | `/api/v1/acts/{slug}/sections/{section}` | — | Provision by number |
+| `GET` | `/api/v1/provisions/{uuid}` | — | Provision by UUID (Redis-cached 6h) |
+| `GET` | `/api/v1/thread/{thread_id}` | — | Messages for a conversation thread |
+| `GET` | `/api/v1/threads` | — | List all threads |
+| `POST` | `/api/v1/admin/acts/ingest` | bearer | Trigger ingestion for all Acts |
+| `DELETE` | `/api/v1/admin/acts/ingest` | bearer | Cancel all running ingestion tasks |
 | `POST` | `/api/v1/admin/acts/{slug}/ingest` | bearer | Trigger ingestion for one Act |
-| `GET` | `/api/v1/admin/acts` | bearer | Acts with ingestion state per language |
-| `GET` | `/api/v1/admin/metrics` | bearer | 24h metrics: decline rate, cache hit rate, p95 latency, daily spend |
+| `DELETE` | `/api/v1/admin/acts/{slug}/ingest` | bearer | Cancel one Act's ingestion |
+| `GET` | `/api/v1/admin/acts` | bearer | Acts with ingestion state, chunks, run history |
+| `GET` | `/api/v1/admin/metrics` | bearer | 24h metrics: decline rate, cache hit, p95 latency, spend |
 | `GET` | `/api/v1/admin/queries` | bearer | Recent queries (`?limit=N`) |
-| `GET·PUT·DELETE` | `/api/v1/admin/llm` | bearer | Read / override / clear the active provider+model |
+| `GET·PUT·DELETE` | `/api/v1/admin/llm` | bearer | Read / override / clear active provider+model |
 
 Full interactive docs: `http://localhost:8000/docs`
 
@@ -188,25 +211,41 @@ Full interactive docs: `http://localhost:8000/docs`
 ## Corpus management
 
 ```bash
-# Register Acts from config/acts/*.yaml
+# Register Acts from YAML (idempotent — safe to re-run)
 cd apps/api && uv run python -m app.ingestion.registry bootstrap
 
-# Seed sample data (fake embeddings — good for dashboard testing)
-cd apps/api && uv run python -m app.seeders --fresh
+# Snapshot all 16 Acts from bdlaws (saves raw HTML to data/raw/)
+uv run python -m app.ingestion.snapshot
 
-# Trigger full ingestion via API
+# Snapshot one Act
+uv run python -m app.ingestion.snapshot --slug digital-security-act-2018
+
+# Snapshot + crawl all per-section sub-pages (act-{id}/section-{id}.html)
+uv run python -m app.ingestion.snapshot --sections
+
+# Force refresh all snapshots (re-crawl bdlaws)
+uv run python -m app.ingestion.snapshot --force
+
+# Ingest all Acts from snapshots (Celery tasks)
+uv run python -m app.ingestion.registry ingest-all
+
+# Ingest via API
 curl -X POST http://localhost:8000/api/v1/admin/acts/ingest \
   -H "Authorization: Bearer $BDRAG_ADMIN_BEARER_TOKEN"
 
-# Single Act
-curl -X POST http://localhost:8000/api/v1/admin/acts/labour-act-2006/ingest \
+# Cancel running ingestion
+curl -X DELETE http://localhost:8000/api/v1/admin/acts/ingest \
   -H "Authorization: Bearer $BDRAG_ADMIN_BEARER_TOKEN"
 
 # Monitor
-docker compose logs -f worker | grep -E "succeeded|failed|chunks_created"
+docker compose logs -f worker | grep -E "succeeded|failed|chunks"
+
+# Feedback analysis — surface low-quality responses for prompt iteration
+uv run python -m app.tools.feedback_report
+uv run python -m app.tools.feedback_report --rating not_helpful --limit 10
 ```
 
-**Adding a new Act:** create `config/acts/<slug>.yaml`, rebuild the API image so the YAML is copied in, run `bootstrap`, trigger ingestion, add ≥ 4 BN + 4 EN records to `apps/api/eval/dataset/golden.jsonl`, and run `python -m eval.harness`. See [RUNBOOK.md](RUNBOOK.md#8-add-a-new-act) for the full procedure.
+**Adding a new Act:** create `config/acts/<slug>.yaml` with source URLs, run `bootstrap`, snapshot, ingest, add ≥ 4 BN + 4 EN records to `apps/api/eval/dataset/golden.jsonl`, run the eval harness. See [RUNBOOK.md](RUNBOOK.md#8-add-a-new-act).
 
 ---
 
@@ -226,7 +265,7 @@ uv run alembic revision --autogenerate -m "describe change"
 uv run alembic downgrade -1
 ```
 
-Current schema: 7 tables (`acts`, `provisions`, `provision_revisions`, `chunks`, `ingestion_runs`, `queries`, `feedback`). The `chunks.embedding` column is `halfvec(2560)` with an HNSW index using `halfvec_cosine_ops`.
+Current schema: 7 tables — `acts`, `provisions`, `provision_revisions`, `chunks`, `ingestion_runs`, `queries`, `feedback`. The `chunks.embedding` column is `halfvec(2560)` with an HNSW index (`halfvec_cosine_ops`).
 
 ---
 
@@ -237,7 +276,7 @@ Current schema: 7 tables (`acts`, `provisions`, `provision_revisions`, `chunks`,
 uv sync
 uv run ruff check . && uv run ruff format --check .
 uv run mypy --strict app eval
-uv run pytest -q                          # 221 tests; all external calls mocked/VCR-replayed
+uv run pytest -q
 uv run python -m eval.harness             # offline eval gate
 
 # Frontend (from apps/web/)
@@ -256,7 +295,7 @@ mypy --strict app eval
 pytest
 pnpm type-check && pnpm build
 
-# On changes to app/prompts/, app/rag/, eval/dataset/:
+# On changes to app/prompts/, app/rag/, app/rag/intent.py, eval/dataset/:
 python -m eval.harness
 # Thresholds: section_citation_accuracy ≥ 0.85
 #             language_routing_accuracy ≥ 0.95
@@ -277,9 +316,7 @@ export BDRAG_ANTHROPIC_API_KEY=sk-ant-...
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Caddy provisions and renews TLS automatically for `$DOMAIN`. The admin console is served at `https://$DOMAIN`. All secrets are environment-only — none are baked into images.
-
-See [RUNBOOK.md](RUNBOOK.md) for day-two operations: bootstrap, ingestion, prompt rollback, disclaimer updates, LLM override, and incident response.
+Caddy provisions TLS automatically for `$DOMAIN`. All secrets are environment-only. See [RUNBOOK.md](RUNBOOK.md) for day-two operations: bootstrap, ingestion, prompt rollback, disclaimer updates, LLM override, and incident response.
 
 ---
 
@@ -288,62 +325,77 @@ See [RUNBOOK.md](RUNBOOK.md) for day-two operations: bootstrap, ingestion, promp
 ```
 bd-legal-rag/
 ├── apps/
-│   ├── api/                    # Python backend
+│   ├── api/
 │   │   ├── app/
 │   │   │   ├── api/            # FastAPI routes + schemas + deps
-│   │   │   ├── db/             # Engine, SQLAlchemy models, Alembic migrations
-│   │   │   ├── ingestion/      # bdlaws crawler, parser, amendments, Celery tasks
+│   │   │   ├── db/             # Engine, models, Alembic migrations
+│   │   │   ├── ingestion/      # crawler, parser, snapshot, tasks, registry
 │   │   │   ├── llm/            # Provider protocol (Claude/OpenAI/Ollama), factory, runtime
-│   │   │   ├── processing/     # Section-hierarchy chunker, embedder (Cohere + Ollama)
-│   │   │   ├── prompts/        # Versioned prompts + safety (disclaimer, decline)
-│   │   │   ├── rag/            # lang_router, retriever, reranker, service, decline_gate,
-│   │   │   │                   #   confidence, citation, guardrails, generator
-│   │   │   ├── seeders/        # Laravel-style seeders (acts, corpus, queries, feedback)
-│   │   │   └── config.py       # pydantic-settings; single source of all tunables
+│   │   │   ├── processing/     # Chunker, embedder (Cohere + Ollama)
+│   │   │   ├── prompts/
+│   │   │   │   ├── families/
+│   │   │   │   │   ├── legal_answer/   # v1, v2 — citation Q&A
+│   │   │   │   │   ├── legal_advice/   # v1 — advice with statutory grounding
+│   │   │   │   │   └── act_summary/    # v1 — summary + explain
+│   │   │   │   └── safety/     # disclaimer.py, decline.py
+│   │   │   ├── rag/
+│   │   │   │   ├── intent.py       # 5-intent query classifier (EN + BN)
+│   │   │   │   ├── act_info.py     # DB-only handlers (section list)
+│   │   │   │   ├── postprocessor.py # Strip filler openers
+│   │   │   │   ├── retriever.py    # HNSW + FTS + RRF
+│   │   │   │   ├── reranker.py     # Cohere mandatory rerank
+│   │   │   │   ├── generator.py    # Full pipeline (both paths)
+│   │   │   │   ├── citation.py     # Placeholder resolver + markdown links
+│   │   │   │   ├── decline_gate.py # Bilingual advice-seeking classifier
+│   │   │   │   └── guardrails.py   # Normative-phrase blacklist
+│   │   │   ├── seeders/        # acts, corpus, queries, feedback seeders
+│   │   │   ├── tools/
+│   │   │   │   └── feedback_report.py  # python -m app.tools.feedback_report
+│   │   │   └── config.py       # pydantic-settings; all tunables
 │   │   ├── eval/
-│   │   │   ├── dataset/golden.jsonl   # 84-record bilingual golden dataset
-│   │   │   ├── metrics.py             # 5 legal-domain metrics
-│   │   │   └── harness.py             # Offline eval harness (python -m eval.harness)
-│   │   └── tests/              # pytest; all external calls mocked or VCR-replayed
-│   └── web/                    # React 19 + Vite 8 admin console
+│   │   │   ├── dataset/golden.jsonl   # 84-record bilingual eval set
+│   │   │   ├── metrics.py
+│   │   │   └── harness.py
+│   │   └── tests/              # pytest; all external calls mocked
+│   └── web/
 │       └── src/
-│           ├── pages/          # Dashboard, ActsPage, CorpusPage, PlaygroundPage, SettingsPage
-│           ├── components/     # Layout + reusable UI (CVA, Tailwind v4)
+│           ├── pages/          # Dashboard, ActsPage, PlaygroundPage,
+│           │                   #   ThreadsPage, ActReaderPage
+│           ├── features/       # SourcesRow, RegisterActModal
+│           ├── components/     # AppShell, Logo, Badge, Button, Card…
 │           ├── api/            # Axios clients (public + admin)
-│           └── types/          # Shared TypeScript interfaces
-├── caddy/Caddyfile             # Reverse proxy + TLS config
+│           └── lib/            # langContext, format, utils
 ├── config/
 │   ├── acts/                   # 16 Act YAML registrations
-│   └── bdlaws-acts-index.json  # Full index of 1,556 Acts from bdlaws portal
+│   └── bdlaws-acts-index.json  # Full index of 1,556 Acts
 ├── docs/
-│   ├── 01-SRS.md               # Software Requirements Specification
-│   └── 02-Architecture.md      # Architecture + ADRs
+│   ├── 01-SRS.md
+│   └── 02-Architecture.md
 ├── .github/
-│   ├── workflows/              # ci.yml · eval.yml · deploy.yml
-│   ├── ISSUE_TEMPLATE/         # bug_report.yml · feature_request.yml
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── CODEOWNERS
+│   └── workflows/              # ci.yml · eval.yml · deploy.yml
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
-├── RUNBOOK.md                  # Day-two operations
+├── RUNBOOK.md
 ├── SECURITY.md
-├── docker-compose.yml          # Dev stack (Ollama local)
-└── docker-compose.prod.yml     # Prod stack (Caddy auto-TLS)
+├── docker-compose.yml
+└── docker-compose.prod.yml
 ```
 
 ---
 
 ## What is genuinely different
 
-If you have built a general-purpose RAG before, four things change in a legal domain:
+If you have built a general-purpose RAG before, five things change in a legal domain:
 
-1. **The disclaimer is application output, not model output** — `generator.py` appends it to every user-visible response including cache-hits, declines, fail-open, and errors. The LLM never sees the disclaimer text. Changing it requires an eval harness pass (eval-gated, versioned in `app/prompts/safety/disclaimer.py`).
+1. **The disclaimer is application output, not model output** — `generator.py` appends it to every user-visible response including cache-hits, declines, fail-open, and errors. The LLM never sees the disclaimer text. Changing it is eval-gated and versioned in `app/prompts/safety/disclaimer.py`.
 
-2. **Citations are placeholders resolved post hoc** — the LLM emits `{{cite:chunk_id}}`; `app/rag/citation.py` renders canonical English or Bengali strings (with Bengali numeral conversion). Any placeholder whose `chunk_id` is not in the supplied set is stripped. Citation accuracy is testable offline without running a model.
+2. **Citations are placeholders resolved post hoc** — the LLM emits `{cite:chunk_id}`; `app/rag/citation.py` renders canonical English or Bengali strings with Bengali numeral conversion and wraps each in a markdown link to the source bdlaws page. Any placeholder not in the supplied set is stripped silently.
 
-3. **Rerank is mandatory, not optional** — legal precision demands a cross-encoder pass. The system degrades to `LOW` confidence rather than failing when the reranker is unreachable (`RerankerUnavailable`). Vector-only retrieval is never served without the rerank pass completing or explicitly degrading.
+3. **Rerank is mandatory, not optional** — legal precision demands a cross-encoder pass. The system degrades to `LOW` confidence rather than failing when the reranker is unreachable. Vector-only retrieval is never served as HIGH confidence.
 
-4. **The data model is temporal** — `provision_revisions` records effective windows (`effective_from`, `effective_to`). Every retrieval query includes a mandatory `as_of_date` predicate. A query about the 2010 form of a provision must not be served the 2024 amendment.
+4. **The data model is temporal** — `provision_revisions` records effective windows (`effective_from`, `effective_to`). Every retrieval query includes a mandatory `as_of_date` predicate. A query about the 2010 form of a provision must not serve the 2024 amendment.
+
+5. **Intent routing replaces a single prompt** — five distinct query modes (Q&A, advice, summary, section list, explain) each use a purpose-built prompt and handler. Section lists return directly from the DB with no LLM involved.
 
 ---
 
@@ -352,20 +404,20 @@ If you have built a general-purpose RAG before, four things change in a legal do
 All statutory text is sourced from the official Bangladesh law portal maintained by the Ministry of Law, Justice and Parliamentary Affairs:
 
 ```
-https://bdlaws.minlaw.gov.bd/laws-of-bangladesh-alphabetical-index.html
+https://bdlaws.minlaw.gov.bd
 ```
 
-Act pages follow the pattern `http://bdlaws.minlaw.gov.bd/act-{id}.html` (Bengali) and `http://bdlaws.minlaw.gov.bd/act-{id}.html?lang=en` (English reference translation). The page IDs for each registered Act are in the corresponding `config/acts/<slug>.yaml` file.
+Act pages: `http://bdlaws.minlaw.gov.bd/act-{id}.html` (Bengali) and `?lang=en` (English). Section pages: `http://bdlaws.minlaw.gov.bd/act-{id}/section-{sectionId}.html`. bdlaws IDs for each registered Act are in `config/acts/<slug>.yaml`.
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — includes non-negotiable safety rules, where-things-go table, and the eval gate requirement for all RAG/prompt changes.
+See [CONTRIBUTING.md](CONTRIBUTING.md) — includes the non-negotiable safety rules, where-things-go table, and the eval gate requirement for all RAG/prompt changes.
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) — includes the responsible disclosure contact and a table of the security design decisions built into the pipeline.
+See [SECURITY.md](SECURITY.md) — responsible disclosure contact and the security design decisions built into the pipeline.
 
 ## License
 
