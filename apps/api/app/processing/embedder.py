@@ -237,18 +237,22 @@ class OllamaEmbedder:
         model: str,
         *,
         timeout: float = 120.0,
+        batch_size: int = 32,
     ) -> None:
         """Initialise the Ollama embedder.
 
         Args:
             base_url: Ollama server base URL (e.g. "http://localhost:11434").
             model: Ollama model name (e.g. "qwen3-embedding:4b").
-            timeout: Per-request HTTP timeout in seconds. Longer than Cohere
-                because local inference is CPU/GPU-bound.
+            timeout: Per-batch HTTP timeout in seconds.
+            batch_size: Maximum texts per /api/embed call. Large Acts (e.g.
+                Code of Criminal Procedure, 679 provisions) must be split into
+                batches so each request completes within ``timeout``.
         """
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
+        self._batch_size = batch_size
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Embed document texts via Ollama /api/embed.
@@ -280,12 +284,15 @@ class OllamaEmbedder:
         return vectors[0]
 
     async def _embed(self, texts: list[str]) -> list[list[float]]:
-        """Call Ollama /api/embed via a thread executor.
+        """Call Ollama /api/embed via a thread executor, batching to avoid timeouts.
 
-        Uses a synchronous httpx.Client run in a thread executor to avoid
-        event-loop inheritance issues in Celery's prefork worker pool. The
-        async HTTP client fails when the forked worker inherits an event loop
-        from the Celery main process; the sync client does not.
+        Large Acts (e.g. CrPC with 679 provisions) sent as a single request
+        exceed the per-request timeout. This method splits ``texts`` into
+        ``_batch_size`` chunks and processes them sequentially so each HTTP
+        call completes within ``_timeout``.
+
+        Uses a synchronous httpx.Client via run_in_executor to avoid
+        event-loop inheritance issues in Celery's prefork worker pool.
 
         Args:
             texts: Texts to embed.
@@ -294,16 +301,21 @@ class OllamaEmbedder:
             list[list[float]]: One embedding vector per input text.
         """
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._embed_sync, texts)
+        results: list[list[float]] = []
+        for start in range(0, len(texts), self._batch_size):
+            batch = texts[start : start + self._batch_size]
+            batch_vectors = await loop.run_in_executor(None, self._embed_batch_sync, batch)
+            results.extend(batch_vectors)
+        return results
 
-    def _embed_sync(self, texts: list[str]) -> list[list[float]]:
-        """Synchronous HTTP call to Ollama /api/embed.
+    def _embed_batch_sync(self, texts: list[str]) -> list[list[float]]:
+        """Synchronous HTTP call for one batch of texts.
 
         Args:
-            texts: Texts to embed.
+            texts: Batch of texts (≤ _batch_size).
 
         Returns:
-            list[list[float]]: One embedding vector per input text.
+            list[list[float]]: One embedding vector per text in the batch.
 
         Raises:
             httpx.HTTPError: On network or server failure.
