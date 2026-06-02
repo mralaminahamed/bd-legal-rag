@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAdminActs, triggerIngestAll } from "@/api/admin";
+import type { AdminActSummary } from "@/types/api";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,13 +26,22 @@ export function ActsPage() {
   const actsQ = useQuery({
     queryKey: ["admin", "acts"],
     queryFn: getAdminActs,
-    refetchInterval: 60_000,
+    // Poll every 3s while any act is running; every 30s otherwise
+    refetchInterval: (query) => {
+      const acts = query.state.data as AdminActSummary[] | undefined;
+      const anyRunning = acts?.some(
+        (a: AdminActSummary) =>
+          a.last_run_bn?.status === "running" || a.last_run_en?.status === "running",
+      );
+      return anyRunning ? 3_000 : 30_000;
+    },
   });
 
   const ingestAll = useMutation({
     mutationFn: triggerIngestAll,
     onSuccess: (data) => {
       toast.success(data.message);
+      // Immediately refetch, then fast-poll kicks in via refetchInterval
       void qc.invalidateQueries({ queryKey: ["admin", "acts"] });
     },
     onError: () => toast.error("Failed to trigger ingestion"),

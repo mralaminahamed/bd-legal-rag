@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { triggerIngestAct } from "@/api/admin";
-import type { AdminActSummary } from "@/types/api";
+import type { AdminActSummary, IngestionRunSummary } from "@/types/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
@@ -13,19 +13,62 @@ interface SourcesRowProps {
 }
 
 function RunBadge({ status }: { status: string }) {
+  if (status === "running") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+        running
+      </span>
+    );
+  }
   const v =
     status === "succeeded" ? "success" : status === "failed" ? "destructive" : "secondary";
   return <Badge variant={v as "success" | "destructive" | "secondary"}>{status}</Badge>;
 }
 
+function LangStatus({
+  run,
+  queued,
+}: {
+  run: IngestionRunSummary | null;
+  queued: boolean;
+}) {
+  const isRunning = queued || run?.status === "running";
+  return (
+    <td className="px-3 py-3">
+      {isRunning ? (
+        <RunBadge status="running" />
+      ) : run ? (
+        <RunBadge status={run.status} />
+      ) : (
+        <span className="text-muted-foreground text-xs">never</span>
+      )}
+    </td>
+  );
+}
+
 export function SourcesRow({ act }: SourcesRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const [queued, setQueued] = useState(false);
   const qc = useQueryClient();
+
+  const isRunning =
+    queued ||
+    act.last_run_bn?.status === "running" ||
+    act.last_run_en?.status === "running";
+
+  // Clear queued state once the server reflects a non-never status
+  const serverHasRun = act.last_run_bn !== null || act.last_run_en !== null;
+  if (queued && serverHasRun) {
+    setQueued(false);
+  }
 
   const ingest = useMutation({
     mutationFn: () => triggerIngestAct(act.slug),
     onSuccess: (data) => {
-      toast.success(`Triggered ${data.task_ids.length} tasks for ${act.short_name}`);
+      toast.success(`Dispatched ${data.task_ids.length} tasks for ${act.short_name}`);
+      setQueued(true);
+      // Kick off fast polling — ActsPage handles the refetchInterval
       void qc.invalidateQueries({ queryKey: ["admin", "acts"] });
     },
     onError: () => toast.error("Failed to trigger ingestion"),
@@ -62,16 +105,22 @@ export function SourcesRow({ act }: SourcesRowProps) {
             {act.status}
           </Badge>
         </td>
-        <td className="px-3 py-3">
-          {act.last_run_bn ? <RunBadge status={act.last_run_bn.status} /> : <span className="text-muted-foreground text-xs">never</span>}
-        </td>
-        <td className="px-3 py-3">
-          {act.last_run_en ? <RunBadge status={act.last_run_en.status} /> : <span className="text-muted-foreground text-xs">never</span>}
-        </td>
+        <LangStatus run={act.last_run_bn} queued={queued} />
+        <LangStatus run={act.last_run_en} queued={queued} />
         <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-          <Button size="sm" variant="secondary" onClick={() => ingest.mutate()} disabled={ingest.isPending}>
-            <i className={`ti ti-refresh text-sm ${ingest.isPending ? "animate-spin" : ""}`} />
-            Ingest
+          <Button
+            size="sm"
+            variant={isRunning ? "ghost" : "secondary"}
+            onClick={() => ingest.mutate()}
+            disabled={ingest.isPending || isRunning}
+          >
+            <i
+              className={cn(
+                "ti text-sm",
+                isRunning ? "ti-refresh animate-spin" : "ti-refresh",
+              )}
+            />
+            {isRunning ? "Running…" : "Ingest"}
           </Button>
         </td>
       </tr>
