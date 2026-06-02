@@ -51,3 +51,6 @@ CLAUDE.md
 /docs/*
 !/docs/01-SRS.md
 !/docs/02-Architecture.md
+
+# HTML snapshots — large, regeneratable via: uv run python -m app.ingestion.snapshot
+apps/api/data/
