@@ -42,9 +42,9 @@ export async function getActStructure(slug: string): Promise<ActStructure> {
   return data;
 }
 
-export async function getSectionDetail(slug: string, sectionId: string): Promise<SectionDetail> {
+export async function getSectionDetail(_slug: string, sectionId: string): Promise<SectionDetail> {
   const { data } = await apiClient.get<SectionDetail>(
-    `/api/v1/acts/${slug}/sections/${sectionId}`,
+    `/api/v1/provisions/${sectionId}`,
   );
   return data;
 }

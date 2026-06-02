@@ -12,6 +12,7 @@ Author: Al Amin Ahamed.
 from __future__ import annotations
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -231,6 +232,89 @@ async def section_detail(
     return SectionDetail(
         provision_id=str(provision.id),
         act_slug=slug,
+        kind=provision.kind,
+        number=provision.number,
+        title=provision.title,
+        hierarchy_path=hierarchy_path,
+        revisions=revisions,
+        disclaimer=disc,
+    )
+
+
+@router.get(
+    "/provisions/{provision_id}",
+    response_model=SectionDetail,
+    summary="Provision detail by UUID (for Act reader navigation)",
+)
+async def provision_by_id(
+    provision_id: str,
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> SectionDetail:
+    """Return full provision detail by UUID.
+
+    Used by the Act reader to load sections identified by their tree node id
+    rather than by section number (which is not unique across subsections).
+
+    Args:
+        provision_id: Provision UUID from the structure tree.
+        session: Async database session.
+        settings: Application settings.
+
+    Returns:
+        SectionDetail: Full provision with revisions and the active disclaimer.
+
+    Raises:
+        HTTPException: 404 when the provision UUID is unknown.
+        HTTPException: 422 when provision_id is not a valid UUID.
+    """
+    try:
+        prov_uuid = uuid.UUID(provision_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"invalid provision id: {provision_id!r}",
+        ) from exc
+
+    prov_result = await session.execute(
+        select(Provision)
+        .where(Provision.id == prov_uuid)
+        .options(selectinload(Provision.revisions))
+    )
+    provision = prov_result.scalar_one_or_none()
+    if provision is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"provision {provision_id!r} not found",
+        )
+
+    # Load the owning Act for slug and name
+    act = await session.get(Act, provision.act_id)
+    if act is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="act not found")
+
+    disclaimer_obj = disclaimer_mod.resolve(settings.active_disclaimer_version)
+    disc = disclaimer_obj.en
+
+    revisions = [
+        RevisionDetail(
+            language=rev.language,
+            translation_status=rev.translation_status,
+            text=rev.text,
+            effective_from=rev.effective_from,
+            effective_to=rev.effective_to,
+            source_url=rev.source_url,
+        )
+        for rev in sorted(provision.revisions, key=lambda r: (r.language, r.effective_from))
+    ]
+
+    hierarchy_path = f"{act.full_name_en} > {provision.kind.capitalize()} {provision.number}"
+    if provision.title:
+        hierarchy_path += f" ({provision.title})"
+
+    return SectionDetail(
+        provision_id=str(provision.id),
+        act_slug=act.slug,
         kind=provision.kind,
         number=provision.number,
         title=provision.title,
