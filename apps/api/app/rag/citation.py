@@ -28,6 +28,7 @@ class CitationContext:
         act_name_bn: Official Bengali act title.
         act_year: Year of enactment.
         section_ref: Section reference string (e.g. ``103(1)(a)``).
+        source_url: Canonical bdlaws URL for this provision.
     """
 
     chunk_id: str
@@ -35,6 +36,7 @@ class CitationContext:
     act_name_bn: str
     act_year: int
     section_ref: str
+    source_url: str
 
 
 def to_bn_numerals(text: str) -> str:
@@ -69,8 +71,12 @@ def format_citation(ctx: CitationContext, *, language: str) -> str:
     if language == "bn":
         bn_year = to_bn_numerals(str(ctx.act_year))
         bn_section = to_bn_numerals(ctx.section_ref)
-        return f"{ctx.act_name_bn}, {bn_year}-এর ধারা {bn_section}"
-    return f"Section {ctx.section_ref} of {ctx.act_name_en}, {ctx.act_year}"
+        text = f"{ctx.act_name_bn}, {bn_year}-এর ধারা {bn_section}"
+    else:
+        text = f"Section {ctx.section_ref} of {ctx.act_name_en}, {ctx.act_year}"
+    if ctx.source_url:
+        return f"[{text}]({ctx.source_url})"
+    return text
 
 
 def resolve_placeholders(

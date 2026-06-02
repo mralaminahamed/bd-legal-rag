@@ -88,6 +88,7 @@ async def rerank(
                             language=c.language,
                             score=c.score,
                             rerank_score=result.relevance_score,
+                            source_url=c.source_url,
                         )
                     )
                 scored.sort(key=lambda x: x.rerank_score or 0.0, reverse=True)

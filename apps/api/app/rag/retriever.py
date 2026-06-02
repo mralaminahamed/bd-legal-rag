@@ -47,6 +47,7 @@ class _Hit:
     content: str
     language: str
     score: float
+    source_url: str
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class RetrievedChunk:
         language: ``bn`` or ``en``.
         score: RRF-fused retrieval score.
         rerank_score: Cohere rerank relevance score; ``None`` before reranking.
+        source_url: Canonical bdlaws URL for this provision.
     """
 
     chunk_id: uuid.UUID
@@ -74,6 +76,7 @@ class RetrievedChunk:
     language: str
     score: float
     rerank_score: float | None
+    source_url: str
 
 
 def _emb_str(embedding: list[float]) -> str:
@@ -146,6 +149,7 @@ def _fuse(
             language=h.language,
             score=rrf[h.chunk_id],
             rerank_score=None,
+            source_url=h.source_url,
         )
         for cid, h in all_hits.items()
         if _passes(cid)
@@ -206,6 +210,7 @@ async def vector_search(
             c.hierarchy_path,
             c.content,
             c.language,
+            pr.source_url,
             1 - (c.embedding <=> cast(:emb AS halfvec({EMBED_DIMENSIONS}))) AS score
         FROM chunks c
         JOIN provision_revisions pr ON pr.id = c.revision_id
@@ -229,6 +234,7 @@ async def vector_search(
             content=str(row["content"]),
             language=str(row["language"]),
             score=float(row["score"]),
+            source_url=str(row["source_url"]),
         )
         for row in rows
     ]
@@ -292,6 +298,7 @@ async def lexical_search(
             c.hierarchy_path,
             c.content,
             c.language,
+            pr.source_url,
             GREATEST(
                 ts_rank_cd(c.content_tsv, websearch_to_tsquery('simple', :q)),
                 ts_rank_cd(to_tsvector('simple', c.hierarchy_path),
@@ -324,6 +331,7 @@ async def lexical_search(
             content=str(row["content"]),
             language=str(row["language"]),
             score=float(row["score"]),
+            source_url=str(row["source_url"]),
         )
         for row in rows
     ]

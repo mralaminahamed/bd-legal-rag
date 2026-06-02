@@ -154,6 +154,7 @@ def _build_citation_contexts(
             act_name_bn=act.full_name_bn,
             act_year=act.act_year,
             section_ref=section_ref,
+            source_url=chunk.source_url,
         )
     return contexts
 
