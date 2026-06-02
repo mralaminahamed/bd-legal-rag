@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Literal
 
 from celery import Celery
@@ -472,7 +474,28 @@ async def ingest_act_language(
                 raise BdlawsFetchError(
                     f"no source_url configured for {act_slug} language={language}"
                 )
-            crawl_result = await fetch_act_page(source["source_url"], act_slug, language)
+            # Use disk snapshot when available (avoids re-crawling bdlaws)
+            _snap_settings = get_settings()
+            _snap_file = Path(_snap_settings.html_snapshot_dir) / act_slug / f"{language}.html"
+            _meta_file = _snap_file.with_suffix("").with_suffix(".meta.json")
+            if _snap_file.exists() and _meta_file.exists():
+                _meta = json.loads(_meta_file.read_text(encoding="utf-8"))
+                crawl_result = CrawlResult(
+                    url=_meta["url"],
+                    html=_snap_file.read_text(encoding="utf-8"),
+                    language=language,
+                    act_slug=act_slug,
+                    fetched_at=datetime.fromisoformat(_meta["fetched_at"]),
+                    etag=None,
+                    last_modified=None,
+                    not_modified=False,
+                )
+                logger.info(
+                    "loaded act from snapshot",
+                    extra={"act_slug": act_slug, "language": language, "path": str(_snap_file)},
+                )
+            else:
+                crawl_result = await fetch_act_page(source["source_url"], act_slug, language)
 
         if crawl_result.not_modified:
             async with factory() as session:
@@ -490,6 +513,18 @@ async def ingest_act_language(
 
         fetched_at = crawl_result.fetched_at
         source_url = crawl_result.url
+
+        # --- Save HTML snapshot for fast re-ingest ---
+        settings_snap = get_settings()
+        snap_dir = Path(settings_snap.html_snapshot_dir) / act_slug
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        snap_file = snap_dir / f"{language}.html"
+        snap_file.write_text(crawl_result.html, encoding="utf-8")
+        meta_file = snap_dir / f"{language}.meta.json"
+        meta_file.write_text(
+            json.dumps({"url": crawl_result.url, "fetched_at": fetched_at.isoformat()}),
+            encoding="utf-8",
+        )
 
         # --- Parse ---
         parse_result = parse_act_page(crawl_result.html, source_url)

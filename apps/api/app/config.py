@@ -187,6 +187,14 @@ class Settings(BaseSettings):
     # --- Caching (§2.5) ---
     response_cache_ttl_seconds: int = Field(default=86_400, ge=0)
 
+    # --- HTML snapshot cache (fast re-ingest without re-crawling) ---
+    html_snapshot_dir: Path = Field(
+        default=Path("data/raw"),
+        description="Directory for raw bdlaws HTML snapshots. Relative to repo root.",
+    )
+    act_structure_cache_ttl: int = Field(default=3600, ge=0)
+    provision_cache_ttl: int = Field(default=21_600, ge=0)
+
     # --- Rate limiting (NFR-SC-2) ---
     rate_limit_max_requests: int = Field(default=20, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)
