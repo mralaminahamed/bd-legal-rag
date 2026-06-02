@@ -256,11 +256,6 @@ export function DashboardPage() {
                   <i className="ti ti-books text-sm" /> Manage Acts
                 </a>
               </Button>
-              <Button asChild variant="secondary" className="justify-start gap-2">
-                <a href="/settings">
-                  <i className="ti ti-settings text-sm" /> Settings
-                </a>
-              </Button>
             </CardContent>
           </Card>
         </div>

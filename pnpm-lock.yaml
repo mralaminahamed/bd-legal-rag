@@ -12,7 +12,7 @@ importers:
         specifier: ^2.9.16
         version: 2.9.16
 
-  apps/admin:
+  apps/web:
     dependencies:
       '@fontsource-variable/geist':
         specifier: ^5.2.9

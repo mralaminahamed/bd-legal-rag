@@ -5,7 +5,6 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { ActsPage } from "@/pages/ActsPage";
 import { CorpusPage } from "@/pages/CorpusPage";
 import { PlaygroundPage } from "@/pages/PlaygroundPage";
-import { SettingsPage } from "@/pages/SettingsPage";
 
 // /playground → redirect to /playground/:uuid (new thread each visit)
 function PlaygroundRedirect() {
@@ -26,7 +25,6 @@ export const router = createBrowserRouter([
       { path: "corpus", element: <CorpusPage /> },
       { path: "playground", element: <PlaygroundRedirect /> },
       { path: "playground/:threadId", element: <PlaygroundPage /> },
-      { path: "settings", element: <SettingsPage /> },
     ],
   },
 ]);

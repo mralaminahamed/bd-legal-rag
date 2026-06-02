@@ -10,8 +10,12 @@ import { ThemeToggle } from "./ThemeToggle";
 const NAV = [
   { to: "/", label: "Dashboard", icon: "ti-layout-dashboard", end: true },
   { to: "/acts", label: "Acts Registry", icon: "ti-books", end: false },
-  { to: "/playground", label: "Playground", icon: "ti-message-chatbot", end: false },
-  { to: "/settings", label: "Settings", icon: "ti-settings", end: false },
+  {
+    to: "/playground",
+    label: "Playground",
+    icon: "ti-message-chatbot",
+    end: false,
+  },
 ];
 
 function NavItem({
@@ -43,7 +47,9 @@ function NavItem({
       }
     >
       <i className={`ti ${icon} text-[15px] shrink-0`} />
-      {!collapsed && <span className="flex-1 truncate leading-none">{label}</span>}
+      {!collapsed && (
+        <span className="flex-1 truncate leading-none">{label}</span>
+      )}
     </NavLink>
   );
 }
@@ -115,7 +121,12 @@ export function AppShell() {
 
         {/* Bottom — collapse toggle */}
         <div className="mx-3 h-px bg-white/6 shrink-0" />
-        <div className={cn("flex shrink-0 h-11 items-center", collapsed ? "justify-center" : "px-2")}>
+        <div
+          className={cn(
+            "flex shrink-0 h-11 items-center",
+            collapsed ? "justify-center" : "px-2",
+          )}
+        >
           <button
             onClick={toggleCollapsed}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -125,7 +136,14 @@ export function AppShell() {
               collapsed && "justify-center px-0 w-9 mx-auto",
             )}
           >
-            <i className={cn("ti text-[15px] shrink-0", collapsed ? "ti-layout-sidebar-left-expand" : "ti-layout-sidebar-left-collapse")} />
+            <i
+              className={cn(
+                "ti text-[15px] shrink-0",
+                collapsed
+                  ? "ti-layout-sidebar-left-expand"
+                  : "ti-layout-sidebar-left-collapse",
+              )}
+            />
             {!collapsed && <span className="flex-1 truncate">Collapse</span>}
           </button>
         </div>
@@ -144,7 +162,9 @@ export function AppShell() {
                 <button
                   key={lang}
                   onClick={() => setUiLang(lang)}
-                  title={lang === "en" ? "English response" : "Bengali response"}
+                  title={
+                    lang === "en" ? "English response" : "Bengali response"
+                  }
                   className={cn(
                     "px-3 py-1 rounded-md text-xs font-semibold transition-colors",
                     uiLang === lang
@@ -152,7 +172,7 @@ export function AppShell() {
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {lang === "en" ? "EN" : "বাং"}
+                  {lang === "en" ? "English" : "বাংলা"}
                 </button>
               ))}
             </div>
