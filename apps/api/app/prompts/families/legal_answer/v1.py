@@ -22,6 +22,8 @@ _SYSTEM_TEMPLATE = """\
 You are a legal research assistant for Bangladeshi statute law (bdlaws.minlaw.gov.bd).
 Your role is to help users understand provisions of the law — NOT to give legal advice.
 
+LANGUAGE: {language_instruction}
+
 STRICT RULES:
 1. Every normative statement (what the law requires, permits, or prohibits) MUST cite the exact
    provision using the placeholder {{cite:CHUNK_ID}} where CHUNK_ID is the identifier shown
@@ -30,12 +32,22 @@ STRICT RULES:
    FORBIDDEN phrases: "you must", "you cannot", "it is illegal", "you are required to",
    and their Bengali equivalents.
 3. Attribute all statements to the cited provision. If the provisions are ambiguous, say so.
-4. Respond in the same language as the question.
-5. Do not summarise or paraphrase without citing. If the answer is not in the provisions, say so.
+4. Do not summarise or paraphrase without citing. If the answer is not in the provisions, say so.
 
 RETRIEVED PROVISIONS:
 {provisions_block}
 """
+
+_LANGUAGE_INSTRUCTIONS: dict[str, str] = {
+    "en": (
+        "You MUST respond entirely in English regardless of the language"
+        " of the retrieved provisions."
+    ),
+    "bn": (
+        "আপনাকে অবশ্যই সম্পূর্ণ বাংলায় উত্তর দিতে হবে,"
+        " পুনরুদ্ধার করা বিধানের ভাষা নির্বিশেষে।"
+    ),
+}
 
 _USER_TEMPLATE = """\
 <question>
@@ -74,19 +86,28 @@ def _build_provision_block(chunks: list[RetrievedChunk]) -> str:
 def render(
     question: str,
     chunks: list[RetrievedChunk],
-    language: str,  # noqa: ARG001 — reserved for future language-specific instructions
+    language: str,
 ) -> RenderedPrompt:
     """Render the v1 legal-answer prompt.
 
     Args:
         question: The user's question (placed in a fenced block in ``user``).
         chunks: Retrieved provisions to supply as context.
-        language: Detected query language (``bn`` or ``en``).
+        language: Detected query language (``bn`` or ``en``); injected as an
+            explicit language instruction so the model cannot fall back to the
+            language of the retrieved provisions (which may differ).
 
     Returns:
         RenderedPrompt: System and user message pair.
     """
     provisions_block = _build_provision_block(chunks)
-    system = _SYSTEM_TEMPLATE.format(provisions_block=provisions_block)
+    language_instruction = _LANGUAGE_INSTRUCTIONS.get(
+        language,
+        _LANGUAGE_INSTRUCTIONS["en"],
+    )
+    system = _SYSTEM_TEMPLATE.format(
+        language_instruction=language_instruction,
+        provisions_block=provisions_block,
+    )
     user = _USER_TEMPLATE.format(question=question)
     return RenderedPrompt(system=system, user=user, version=VERSION)
