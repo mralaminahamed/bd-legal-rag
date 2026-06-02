@@ -1,9 +1,13 @@
-// BD Legal RAG brand mark. Author: Al Amin Ahamed.
+// BD Legal RAG — Shapla (Bangladesh national water lily) brand mark.
+// Author: Al Amin Ahamed.
 import { useId } from "react";
 
 export function Logo({ size = 28 }: { size?: number }) {
   const uid = useId().replace(/:/g, "");
   const bgId = `logo-bg-${uid}`;
+
+  // Shapla petal path: teardrop pointing outward (-y), base near center at y=-2.5
+  const petal = "M0,-2.5 C2.8,-4 2.8,-8 0,-11 C-2.8,-8 -2.8,-4 0,-2.5 Z";
 
   return (
     <svg
@@ -16,36 +20,26 @@ export function Logo({ size = 28 }: { size?: number }) {
     >
       <defs>
         <linearGradient id={bgId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#1e3a6e" />
-          <stop offset="100%" stopColor="#111827" />
+          <stop offset="0%" stopColor="#1a3a6b" />
+          <stop offset="100%" stopColor="#0f1f42" />
         </linearGradient>
       </defs>
 
       {/* Background */}
       <rect width="32" height="32" rx="8" fill={`url(#${bgId})`} />
 
-      {/* Scales beam */}
-      <line x1="5" y1="11" x2="27" y2="11" stroke="rgba(255,255,255,0.9)" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Shapla — 5 petals at 72° intervals */}
+      <g transform="translate(16,16)">
+        <path d={petal} fill="rgba(255,255,255,0.92)" />
+        <path d={petal} fill="rgba(255,255,255,0.82)" transform="rotate(72)" />
+        <path d={petal} fill="rgba(255,255,255,0.88)" transform="rotate(144)" />
+        <path d={petal} fill="rgba(255,255,255,0.82)" transform="rotate(216)" />
+        <path d={petal} fill="rgba(255,255,255,0.88)" transform="rotate(288)" />
+      </g>
 
-      {/* Pivot — indigo accent dot at fulcrum */}
-      <circle cx="16" cy="11" r="2.5" fill="#6366f1" />
-      <circle cx="16" cy="11" r="1.2" fill="white" fillOpacity="0.7" />
-
-      {/* Center post */}
-      <line x1="16" y1="13" x2="16" y2="25" stroke="rgba(255,255,255,0.85)" strokeWidth="1.4" strokeLinecap="round" />
-
-      {/* Base */}
-      <line x1="11" y1="25" x2="21" y2="25" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" />
-
-      {/* Left pan chain */}
-      <line x1="5" y1="11" x2="4" y2="18.5" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" strokeLinecap="round" />
-      {/* Left pan */}
-      <path d="M1.5 18.5 Q4 22 6.5 18.5" stroke="rgba(255,255,255,0.9)" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-
-      {/* Right pan chain */}
-      <line x1="27" y1="11" x2="28" y2="18.5" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" strokeLinecap="round" />
-      {/* Right pan */}
-      <path d="M25.5 18.5 Q28 22 30.5 18.5" stroke="rgba(255,255,255,0.9)" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+      {/* Center — indigo accent (the AI/knowledge node) */}
+      <circle cx="16" cy="16" r="3" fill="#6366f1" />
+      <circle cx="16" cy="16" r="1.4" fill="white" fillOpacity="0.85" />
     </svg>
   );
 }

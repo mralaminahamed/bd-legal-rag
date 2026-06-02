@@ -1,31 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e3a6e"/>
-      <stop offset="100%" stop-color="#111827"/>
+      <stop offset="0%" stop-color="#1a3a6b"/>
+      <stop offset="100%" stop-color="#0f1f42"/>
     </linearGradient>
   </defs>
 
   <rect width="32" height="32" rx="8" fill="url(#bg)"/>
 
-  <!-- Scales beam -->
-  <line x1="5" y1="11" x2="27" y2="11" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Shapla — 5 petals at 72° intervals -->
+  <g transform="translate(16,16)">
+    <path d="M0,-2.5 C2.8,-4 2.8,-8 0,-11 C-2.8,-8 -2.8,-4 0,-2.5 Z" fill="rgba(255,255,255,0.92)"/>
+    <path d="M0,-2.5 C2.8,-4 2.8,-8 0,-11 C-2.8,-8 -2.8,-4 0,-2.5 Z" fill="rgba(255,255,255,0.82)" transform="rotate(72)"/>
+    <path d="M0,-2.5 C2.8,-4 2.8,-8 0,-11 C-2.8,-8 -2.8,-4 0,-2.5 Z" fill="rgba(255,255,255,0.88)" transform="rotate(144)"/>
+    <path d="M0,-2.5 C2.8,-4 2.8,-8 0,-11 C-2.8,-8 -2.8,-4 0,-2.5 Z" fill="rgba(255,255,255,0.82)" transform="rotate(216)"/>
+    <path d="M0,-2.5 C2.8,-4 2.8,-8 0,-11 C-2.8,-8 -2.8,-4 0,-2.5 Z" fill="rgba(255,255,255,0.88)" transform="rotate(288)"/>
+  </g>
 
-  <!-- Pivot — indigo accent at fulcrum -->
-  <circle cx="16" cy="11" r="2.5" fill="#6366f1"/>
-  <circle cx="16" cy="11" r="1.2" fill="white" fill-opacity="0.7"/>
-
-  <!-- Center post -->
-  <line x1="16" y1="13" x2="16" y2="25" stroke="rgba(255,255,255,0.85)" stroke-width="1.4" stroke-linecap="round"/>
-
-  <!-- Base -->
-  <line x1="11" y1="25" x2="21" y2="25" stroke="rgba(255,255,255,0.85)" stroke-width="1.5" stroke-linecap="round"/>
-
-  <!-- Left chain + pan -->
-  <line x1="5" y1="11" x2="4" y2="18.5" stroke="rgba(255,255,255,0.6)" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M1.5 18.5 Q4 22 6.5 18.5" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-
-  <!-- Right chain + pan -->
-  <line x1="27" y1="11" x2="28" y2="18.5" stroke="rgba(255,255,255,0.6)" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M25.5 18.5 Q28 22 30.5 18.5" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  <!-- Center — indigo accent -->
+  <circle cx="16" cy="16" r="3" fill="#6366f1"/>
+  <circle cx="16" cy="16" r="1.4" fill="white" fill-opacity="0.85"/>
 </svg>
