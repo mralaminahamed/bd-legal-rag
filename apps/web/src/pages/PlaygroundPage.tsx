@@ -20,10 +20,55 @@ interface Message {
   answer: string;
   streamText: string;
   disclaimer: string | null;
+  citations: string[];
   declined: boolean;
   cached: boolean;
   degraded: boolean;
   status: "streaming" | "done" | "error";
+}
+
+// ── bdlaws source URLs (from config/acts/*.yaml) ──────────────────────────────
+
+const BDLAWS_URLS: Record<string, string> = {
+  "code-of-civil-procedure-1908": "http://bdlaws.minlaw.gov.bd/act-86.html",
+  "code-of-criminal-procedure-1898": "http://bdlaws.minlaw.gov.bd/act-75.html",
+  "companies-act-1994": "http://bdlaws.minlaw.gov.bd/act-788.html",
+  "constitution-of-bangladesh-1972": "http://bdlaws.minlaw.gov.bd/act-367.html",
+  "contract-act-1872": "http://bdlaws.minlaw.gov.bd/act-26.html",
+  "digital-security-act-2018": "http://bdlaws.minlaw.gov.bd/act-1261.html",
+  "evidence-act-1872": "http://bdlaws.minlaw.gov.bd/act-24.html",
+  "income-tax-act-2023": "http://bdlaws.minlaw.gov.bd/act-1429.html",
+  "labour-act-2006": "http://bdlaws.minlaw.gov.bd/act-952.html",
+  "limitation-act-1908": "http://bdlaws.minlaw.gov.bd/act-88.html",
+  "negotiable-instruments-act-1881": "http://bdlaws.minlaw.gov.bd/act-46.html",
+  "partnership-act-1932": "http://bdlaws.minlaw.gov.bd/act-157.html",
+  "penal-code-1860": "http://bdlaws.minlaw.gov.bd/act-11.html",
+  "specific-relief-act-1877": "http://bdlaws.minlaw.gov.bd/act-36.html",
+  "transfer-of-property-act-1882": "http://bdlaws.minlaw.gov.bd/act-48.html",
+  "vat-sd-act-2012": "http://bdlaws.minlaw.gov.bd/act-1106.html",
+};
+
+interface ParsedRef {
+  label: string;   // full citation string
+  section: string; // e.g. "103"
+  url: string;     // bdlaws URL
+}
+
+function parseRefs(citations: string[], actsData: { slug: string; full_name_en: string }[]): ParsedRef[] {
+  return citations
+    .map((cite) => {
+      // Match "Section 103 of The Bangladesh Labour Act, 2006"
+      const m = cite.match(/Section\s+([\w()]+)\s+of\s+(.+)/i);
+      if (!m) return null;
+      const [, section, _actName] = m;
+      const act = actsData.find(
+        (a) => cite.toLowerCase().includes(a.full_name_en.toLowerCase().slice(4)),
+      );
+      const url = act ? (BDLAWS_URLS[act.slug] ?? "") : "";
+      if (!url) return null;
+      return { label: cite, section: section ?? "", url };
+    })
+    .filter((r): r is ParsedRef => r !== null);
 }
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
@@ -74,10 +119,12 @@ function AiBubble({
   msg,
   disclaimerLabel,
   declinedText,
+  actsData,
 }: {
   msg: Message;
   disclaimerLabel: string;
   declinedText: string;
+  actsData: { slug: string; full_name_en: string }[];
 }) {
   const answerBody =
     msg.disclaimer && msg.answer.includes(msg.disclaimer)
@@ -159,6 +206,33 @@ function AiBubble({
             </div>
           </div>
         )}
+
+        {msg.status === "done" && msg.citations.length > 0 && (() => {
+          const refs = parseRefs(msg.citations, actsData);
+          if (refs.length === 0) return null;
+          return (
+            <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <i className="ti ti-books text-primary text-xs" />
+                References
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {refs.map((ref, i) => (
+                  <a
+                    key={i}
+                    href={ref.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-2 text-xs text-muted-foreground hover:text-primary transition-colors group"
+                  >
+                    <i className="ti ti-external-link text-[10px] shrink-0 mt-0.5 group-hover:text-primary" />
+                    <span className="leading-snug group-hover:underline underline-offset-2">{ref.label}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -219,6 +293,7 @@ export function PlaygroundPage() {
             answer: m.answer ?? "",
             streamText: "",
             disclaimer,
+            citations: [],
             declined: m.declined,
             cached: m.cached,
             degraded: m.degraded,
@@ -255,6 +330,7 @@ export function PlaygroundPage() {
       answer: "",
       streamText: "",
       disclaimer: null,
+      citations: [],
       declined: false,
       cached: false,
       degraded: false,
@@ -321,6 +397,7 @@ export function PlaygroundPage() {
                       ...m,
                       answer: body || event.answer || "",
                       disclaimer: disclaimer ?? event.disclaimer,
+                      citations: event.citations ?? [],
                       declined: event.declined,
                       cached: event.cached,
                       degraded: event.degraded,
@@ -408,6 +485,7 @@ export function PlaygroundPage() {
                   msg={msg}
                   disclaimerLabel={s.disclaimer_label}
                   declinedText={s.declined}
+                  actsData={actsQ.data ?? []}
                 />
               </div>
             ))}
