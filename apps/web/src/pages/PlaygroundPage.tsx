@@ -277,7 +277,7 @@ export function PlaygroundPage() {
         body: JSON.stringify({
           question: msg.question,
           act_slug: actSlug || null,
-          language: null,
+          language: uiLang,   // respect the user's explicit language selection
         }),
       });
 
@@ -371,6 +371,8 @@ export function PlaygroundPage() {
             <i className="ti ti-pencil-plus text-sm" />
             {s.new_chat}
           </Button>
+          <div className="flex flex-col items-end gap-0.5">
+          <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide px-1">Response language</span>
           <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
             {(["en", "bn"] as UILang[]).map((lang) => (
               <button
@@ -386,6 +388,7 @@ export function PlaygroundPage() {
                 {lang === "en" ? "English" : "বাংলা"}
               </button>
             ))}
+          </div>
           </div>
         </div>
       </div>
