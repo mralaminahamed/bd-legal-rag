@@ -11,15 +11,17 @@ Author: Al Amin Ahamed.
 
 from __future__ import annotations
 
+import json as _json
 import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_redis
 from app.api.schemas import (
     ActStructure,
     ActSummary,
@@ -125,12 +127,16 @@ async def list_acts(
 async def act_structure(
     slug: str,
     session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    settings: Settings = Depends(get_settings),
 ) -> ActStructure:
     """Return the Act with its full Part → Chapter → Section tree.
 
     Args:
         slug: Act slug (e.g. ``labour-act-2006``).
         session: Async database session.
+        redis: Shared Redis client.
+        settings: Application settings.
 
     Returns:
         ActStructure: Act metadata and provision tree.
@@ -138,6 +144,11 @@ async def act_structure(
     Raises:
         HTTPException: 404 when the slug is unknown.
     """
+    _cache_key = f"act:structure:{slug}"
+    _cached = await redis.get(_cache_key)
+    if _cached:
+        return ActStructure.model_validate(_json.loads(_cached))
+
     result = await session.execute(select(Act).where(Act.slug == slug))
     act = result.scalar_one_or_none()
     if act is None:
@@ -153,10 +164,9 @@ async def act_structure(
     )
     provisions = list(provisions_result.scalars().all())
 
-    return ActStructure(
-        act=_act_to_summary(act),
-        tree=_build_tree(provisions),
-    )
+    _result = ActStructure(act=_act_to_summary(act), tree=_build_tree(provisions))
+    await redis.set(_cache_key, _result.model_dump_json(), ex=settings.act_structure_cache_ttl)
+    return _result
 
 
 @router.get(
@@ -250,6 +260,7 @@ async def provision_by_id(
     provision_id: str,
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
+    redis: Redis = Depends(get_redis),
 ) -> SectionDetail:
     """Return full provision detail by UUID.
 
@@ -260,6 +271,7 @@ async def provision_by_id(
         provision_id: Provision UUID from the structure tree.
         session: Async database session.
         settings: Application settings.
+        redis: Shared Redis client.
 
     Returns:
         SectionDetail: Full provision with revisions and the active disclaimer.
@@ -275,6 +287,11 @@ async def provision_by_id(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"invalid provision id: {provision_id!r}",
         ) from exc
+
+    _cache_key = f"provision:{provision_id}"
+    _cached = await redis.get(_cache_key)
+    if _cached:
+        return SectionDetail.model_validate(_json.loads(_cached))
 
     prov_result = await session.execute(
         select(Provision)
@@ -312,7 +329,7 @@ async def provision_by_id(
     if provision.title:
         hierarchy_path += f" ({provision.title})"
 
-    return SectionDetail(
+    _detail = SectionDetail(
         provision_id=str(provision.id),
         act_slug=act.slug,
         kind=provision.kind,
@@ -322,3 +339,5 @@ async def provision_by_id(
         revisions=revisions,
         disclaimer=disc,
     )
+    await redis.set(_cache_key, _detail.model_dump_json(), ex=settings.provision_cache_ttl)
+    return _detail
