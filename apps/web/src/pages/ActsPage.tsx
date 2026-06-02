@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAdminActs, triggerIngestAll } from "@/api/admin";
 import { PageHeader } from "@/components/ui/page-header";
@@ -49,6 +50,12 @@ export function ActsPage() {
         description="Statutory corpus — ingestion state per language."
         actions={
           <>
+            <Button size="sm" variant="ghost" asChild>
+              <Link to="/corpus">
+                <i className="ti ti-timeline text-sm" />
+                Coverage
+              </Link>
+            </Button>
             <Button
               size="sm"
               variant="secondary"
