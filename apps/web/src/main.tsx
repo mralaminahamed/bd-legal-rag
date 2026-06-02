@@ -6,6 +6,7 @@ import { RouterProvider } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { queryClient } from "@/lib/queryClient";
+import { LangProvider } from "@/lib/langContext";
 import { router } from "@/app/routes";
 
 const root = document.getElementById("root");
@@ -15,8 +16,10 @@ createRoot(root).render(
   <StrictMode>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-        <Toaster position="top-right" richColors />
+        <LangProvider>
+          <RouterProvider router={router} />
+          <Toaster position="top-right" richColors />
+        </LangProvider>
       </QueryClientProvider>
     </ThemeProvider>
   </StrictMode>

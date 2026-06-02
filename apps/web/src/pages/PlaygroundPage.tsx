@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLang } from "@/lib/langContext";
 import { useQuery } from "@tanstack/react-query";
 import { getActs, getThread } from "@/api/query";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Markdown } from "@/components/ui/markdown";
 import { API_BASE_URL } from "@/lib/config";
 import type { StreamEvent } from "@/types/api";
-import { cn } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -50,8 +50,6 @@ const UI_STRINGS = {
     new_chat: "নতুন চ্যাট",
   },
 } as const;
-
-type UILang = "en" | "bn";
 
 const EXAMPLE_QUESTIONS = [
   "What is the weekly holiday entitlement under the Labour Act?",
@@ -189,7 +187,7 @@ export function PlaygroundPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState(() => searchParams.get("q") ?? "");
   const [actSlug, setActSlug] = useState("");
-  const [uiLang, setUiLang] = useState<UILang>("en");
+  const { uiLang } = useLang();
   const [isStreaming, setIsStreaming] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -371,25 +369,6 @@ export function PlaygroundPage() {
             <i className="ti ti-pencil-plus text-sm" />
             {s.new_chat}
           </Button>
-          <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wide px-1">Response language</span>
-          <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
-            {(["en", "bn"] as UILang[]).map((lang) => (
-              <button
-                key={lang}
-                onClick={() => setUiLang(lang)}
-                className={cn(
-                  "px-3 py-1 rounded-md text-xs font-semibold transition-colors",
-                  uiLang === lang
-                    ? "bg-card text-foreground shadow-sm ring-1 ring-foreground/10"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {lang === "en" ? "English" : "বাংলা"}
-              </button>
-            ))}
-          </div>
-          </div>
         </div>
       </div>
 

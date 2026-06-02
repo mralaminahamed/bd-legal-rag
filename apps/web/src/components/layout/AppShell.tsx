@@ -1,8 +1,9 @@
 // App layout — collapsible sidebar + max-width content. Author: Al Amin Ahamed.
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/langContext";
 import { ConnectionBadge } from "./ConnectionBadge";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -51,6 +52,9 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("sidebar-collapsed") === "true",
   );
+  const { uiLang, setUiLang } = useLang();
+  const location = useLocation();
+  const isPlayground = location.pathname.startsWith("/playground");
 
   function toggleCollapsed() {
     setCollapsed((c) => {
@@ -132,6 +136,28 @@ export function AppShell() {
         {/* Top bar */}
         <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-6 backdrop-blur-sm shrink-0">
           <div className="flex-1" />
+
+          {/* Language toggle — only on playground routes */}
+          {isPlayground && (
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+              {(["en", "bn"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => setUiLang(lang)}
+                  title={lang === "en" ? "English response" : "Bengali response"}
+                  className={cn(
+                    "px-3 py-1 rounded-md text-xs font-semibold transition-colors",
+                    uiLang === lang
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-foreground/10"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {lang === "en" ? "EN" : "বাং"}
+                </button>
+              ))}
+            </div>
+          )}
+
           <ConnectionBadge />
           <ThemeToggle />
         </header>
