@@ -41,7 +41,7 @@ BDRAG_DATABASE_DSN=postgresql+asyncpg://bdrag:bdrag@localhost:5432/bdrag \
   uv run python -m app.ingestion.registry bootstrap
 ```
 
-Verify the five v1.0 Acts are registered:
+Verify Acts are registered (16 as of v1.0):
 
 ```bash
 curl -sS "$API/api/v1/admin/acts" -H "Authorization: Bearer $TOKEN"
