@@ -78,7 +78,7 @@ def _build_provision_block(chunks: list[RetrievedChunk]) -> str:
             f'<provision chunk_id="{chunk.chunk_id}" path="{chunk.hierarchy_path}">\n'
             f"{chunk.content}\n"
             f"</provision>\n"
-            f"To cite this provision use: {{{{cite:{chunk.chunk_id}}}}}"
+            f"To cite this provision use: {{cite:{chunk.chunk_id}}}"
         )
     return "\n\n".join(lines)
 

@@ -15,7 +15,8 @@ import re
 from dataclasses import dataclass
 
 _BN_DIGIT_TABLE = str.maketrans("0123456789", "০১২৩৪৫৬৭৮৯")
-_PLACEHOLDER_RE = re.compile(r"\{\{cite:([^}]+)\}\}")
+# Match both {cite:id} (model output) and {{cite:id}} (legacy double-brace format)
+_PLACEHOLDER_RE = re.compile(r"\{\{cite:([^}]+)\}\}|\{cite:([^}]+)\}")
 
 
 @dataclass(frozen=True)
@@ -100,7 +101,8 @@ def resolve_placeholders(
     """
 
     def _replace(m: re.Match[str]) -> str:
-        chunk_id = m.group(1)
+        # group(1) = double-brace match, group(2) = single-brace match
+        chunk_id = m.group(1) or m.group(2)
         ctx = contexts.get(chunk_id)
         if ctx is None:
             return ""
