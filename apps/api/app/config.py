@@ -125,7 +125,7 @@ class Settings(BaseSettings):
     # --- Generation (§2.5) ---
     anthropic_model: str = "claude-sonnet-4-6"
     openai_model: str = "gpt-4o-mini"
-    ollama_model: str = "llama3.2"
+    ollama_model: str = "gemma4:e2b"
     ollama_embed_model: str = "qwen3-embedding:4b"
     llm_timeout_seconds: float = Field(default=60.0, gt=0.0)
     llm_max_retries: int = Field(default=3, ge=0)

@@ -56,7 +56,7 @@ All Acts available in Bengali (authoritative) and English (reference translation
 | Workers | Celery 5 · Redis · httpx async |
 | Database | PostgreSQL 16 · pgvector 0.8.2 · HNSW cosine · `halfvec(2560)` or `vector(1024)` |
 | Embeddings | Cohere `embed-multilingual-v3.0` (1024d) · Ollama `qwen3-embedding:4b` (2560d, local fallback) |
-| LLM | Claude `claude-sonnet-4-6` · OpenAI `gpt-4o-mini` · Ollama `llama3.2` |
+| LLM | Claude `claude-sonnet-4-6` · OpenAI `gpt-4o-mini` · Ollama `gemma4:e2b` |
 | Reranker | Cohere `rerank-multilingual-v3.0` |
 | Frontend | React 19 · TypeScript 6 · Vite 8 · Tailwind CSS v4 · TanStack Query 5 |
 | Infra | Docker Compose · GitHub Actions CI/Eval/Deploy · Caddy (prod TLS) |
@@ -70,7 +70,7 @@ All Acts available in Bengali (authoritative) and English (reference translation
 - Node.js 24+ with [pnpm](https://pnpm.io/) (`npm i -g pnpm`)
 
 **For local-only dev (no cloud keys needed):**
-- [Ollama](https://ollama.com) running on the host with `llama3.2` and `qwen3-embedding:4b` pulled
+- [Ollama](https://ollama.com) running on the host with `gemma4:e2b` and `qwen3-embedding:4b` pulled
 
 **For production quality retrieval:**
 - `BDRAG_COHERE_API_KEY` — embeddings + mandatory reranking
@@ -91,7 +91,7 @@ cd bd-legal-rag
 # 2. Create .env (gitignored)
 cat > .env << 'EOF'
 BDRAG_DEFAULT_PROVIDER=ollama
-BDRAG_OLLAMA_MODEL=llama3.2
+BDRAG_OLLAMA_MODEL=gemma4:e2b
 BDRAG_OLLAMA_EMBED_MODEL=qwen3-embedding:4b
 BDRAG_ADMIN_BEARER_TOKEN=$(openssl rand -hex 32)
 BDRAG_DECLINE_RECALL_FLOOR=0.001
@@ -100,7 +100,7 @@ VITE_ADMIN_TOKEN=dev-admin-token
 EOF
 
 # 3. Pull Ollama models (host, not container)
-ollama pull llama3.2
+ollama pull gemma4:e2b
 ollama pull qwen3-embedding:4b
 
 # 4. Start the stack
@@ -136,7 +136,7 @@ open http://localhost:8080
 ```bash
 # Generation
 BDRAG_DEFAULT_PROVIDER=ollama          # anthropic | openai | ollama
-BDRAG_OLLAMA_MODEL=llama3.2
+BDRAG_OLLAMA_MODEL=gemma4:e2b
 BDRAG_OLLAMA_EMBED_MODEL=qwen3-embedding:4b
 
 # Production embeddings + reranking

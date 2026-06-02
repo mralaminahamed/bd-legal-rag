@@ -18,7 +18,7 @@ x-app-env: &app-env
   # Ollama (reached via host.docker.internal); override in the root .env.
   BDRAG_DEFAULT_PROVIDER: ${BDRAG_DEFAULT_PROVIDER:-ollama}
   BDRAG_OLLAMA_BASE_URL: ${BDRAG_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-  BDRAG_OLLAMA_MODEL: ${BDRAG_OLLAMA_MODEL:-llama3.2}
+  BDRAG_OLLAMA_MODEL: ${BDRAG_OLLAMA_MODEL:-gemma4:e2b}
   BDRAG_OLLAMA_EMBED_MODEL: ${BDRAG_OLLAMA_EMBED_MODEL:-qwen3-embedding:4b}
   BDRAG_ANTHROPIC_MODEL: ${BDRAG_ANTHROPIC_MODEL:-claude-sonnet-4-6}
   BDRAG_OPENAI_MODEL: ${BDRAG_OPENAI_MODEL:-gpt-4o-mini}

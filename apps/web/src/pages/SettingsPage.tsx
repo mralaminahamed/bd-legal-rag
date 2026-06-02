@@ -22,7 +22,7 @@ const PROVIDERS = ["anthropic", "openai", "ollama"] as const;
 const MODELS: Record<string, string[]> = {
   anthropic: ["claude-sonnet-4-6", "claude-opus-4-8", "claude-haiku-4-5-20251001"],
   openai: ["gpt-4o-mini", "gpt-4o"],
-  ollama: ["llama3.2", "mistral", "gemma4:e2b"],
+  ollama: ["gemma4:e2b", "llama3.2", "mistral"],
 };
 
 function HealthDot({ ok }: { ok: boolean }) {
