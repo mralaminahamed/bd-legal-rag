@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { triggerIngestAct } from "@/api/admin";
+import { cancelIngestAct, triggerIngestAct } from "@/api/admin";
 import type { AdminActSummary, IngestionRunSummary } from "@/types/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,10 +68,19 @@ export function SourcesRow({ act }: SourcesRowProps) {
     onSuccess: (data) => {
       toast.success(`Dispatched ${data.task_ids.length} tasks for ${act.short_name}`);
       setQueued(true);
-      // Kick off fast polling — ActsPage handles the refetchInterval
       void qc.invalidateQueries({ queryKey: ["admin", "acts"] });
     },
     onError: () => toast.error("Failed to trigger ingestion"),
+  });
+
+  const cancel = useMutation({
+    mutationFn: () => cancelIngestAct(act.slug),
+    onSuccess: (data) => {
+      toast.info(data.message);
+      setQueued(false);
+      void qc.invalidateQueries({ queryKey: ["admin", "acts"] });
+    },
+    onError: () => toast.error("Failed to stop ingestion"),
   });
 
   return (
@@ -108,20 +117,29 @@ export function SourcesRow({ act }: SourcesRowProps) {
         <LangStatus run={act.last_run_bn} queued={queued} />
         <LangStatus run={act.last_run_en} queued={queued} />
         <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-          <Button
-            size="sm"
-            variant={isRunning ? "ghost" : "secondary"}
-            onClick={() => ingest.mutate()}
-            disabled={ingest.isPending || isRunning}
-          >
-            <i
-              className={cn(
-                "ti text-sm",
-                isRunning ? "ti-refresh animate-spin" : "ti-refresh",
-              )}
-            />
-            {isRunning ? "Running…" : "Ingest"}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {isRunning ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => cancel.mutate()}
+                disabled={cancel.isPending}
+              >
+                <i className="ti ti-square-x text-sm" />
+                Stop
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => ingest.mutate()}
+                disabled={ingest.isPending}
+              >
+                <i className="ti ti-refresh text-sm" />
+                Ingest
+              </Button>
+            )}
+          </div>
         </td>
       </tr>
 

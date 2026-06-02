@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAdminActs, triggerIngestAll } from "@/api/admin";
+import { cancelIngestAll, getAdminActs, triggerIngestAll } from "@/api/admin";
 import type { AdminActSummary } from "@/types/api";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -41,11 +41,23 @@ export function ActsPage() {
     mutationFn: triggerIngestAll,
     onSuccess: (data) => {
       toast.success(data.message);
-      // Immediately refetch, then fast-poll kicks in via refetchInterval
       void qc.invalidateQueries({ queryKey: ["admin", "acts"] });
     },
     onError: () => toast.error("Failed to trigger ingestion"),
   });
+
+  const cancelAll = useMutation({
+    mutationFn: cancelIngestAll,
+    onSuccess: (data) => {
+      toast.info(data.message);
+      void qc.invalidateQueries({ queryKey: ["admin", "acts"] });
+    },
+    onError: () => toast.error("Failed to cancel ingestion"),
+  });
+
+  const anyRunning = (actsQ.data ?? []).some(
+    (a) => a.last_run_bn?.status === "running" || a.last_run_en?.status === "running",
+  );
 
   const filtered = (actsQ.data ?? []).filter(
     (a) =>
@@ -74,10 +86,21 @@ export function ActsPage() {
               <i className="ti ti-plus text-sm" />
               Register Act
             </Button>
+            {anyRunning && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => cancelAll.mutate()}
+                disabled={cancelAll.isPending}
+              >
+                <i className="ti ti-square-x text-sm" />
+                Stop all
+              </Button>
+            )}
             <Button
               size="sm"
               onClick={() => ingestAll.mutate()}
-              disabled={ingestAll.isPending}
+              disabled={ingestAll.isPending || anyRunning}
             >
               <i className={`ti ti-refresh text-sm ${ingestAll.isPending ? "animate-spin" : ""}`} />
               Ingest all

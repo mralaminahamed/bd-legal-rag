@@ -27,6 +27,20 @@ export async function triggerIngestAct(slug: string): Promise<IngestionTriggerRe
   return data;
 }
 
+export async function cancelIngestAll(): Promise<{ revoked: number; message: string }> {
+  const { data } = await adminClient.delete<{ revoked: number; message: string }>(
+    "/api/v1/admin/acts/ingest"
+  );
+  return data;
+}
+
+export async function cancelIngestAct(slug: string): Promise<{ revoked: number; message: string }> {
+  const { data } = await adminClient.delete<{ revoked: number; message: string }>(
+    `/api/v1/admin/acts/${slug}/ingest`
+  );
+  return data;
+}
+
 export async function getLLMOverride(): Promise<LLMOverrideResponse> {
   const { data } = await adminClient.get<LLMOverrideResponse>("/api/v1/admin/llm");
   return data;

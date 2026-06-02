@@ -32,6 +32,11 @@ from app.llm import runtime as llm_runtime
 
 logger = logging.getLogger(__name__)
 
+# Redis key helpers for tracking active ingestion task IDs.
+_KEY_ALL = "ingest:active"          # SET of all active task IDs
+_KEY_ACT = "ingest:act:{slug}"      # SET of task IDs for one act
+_TTL = 7200                         # 2 h — tasks complete well before this
+
 router = APIRouter(
     prefix="/api/v1/admin",
     tags=["admin"],
@@ -109,7 +114,10 @@ async def admin_acts(session: AsyncSession = Depends(get_db)) -> list[AdminActSu
 
 
 @router.post("/acts/ingest", response_model=IngestionTriggerResponse, status_code=202)
-async def ingest_all(session: AsyncSession = Depends(get_db)) -> IngestionTriggerResponse:
+async def ingest_all(
+    session: AsyncSession = Depends(get_db),
+    redis: object = Depends(get_redis),  # noqa: ARG001
+) -> IngestionTriggerResponse:
     """Dispatch Celery ingestion tasks for every Act in both languages.
 
     One ``ingest_act_language_task`` is dispatched per ``(act, language)`` pair
@@ -117,6 +125,7 @@ async def ingest_all(session: AsyncSession = Depends(get_db)) -> IngestionTrigge
 
     Args:
         session: Async database session.
+        redis: Unused injected dependency; task IDs stored via direct client call.
 
     Returns:
         IngestionTriggerResponse: Dispatched Celery task IDs.
@@ -129,10 +138,25 @@ async def ingest_all(session: AsyncSession = Depends(get_db)) -> IngestionTrigge
     acts = list(acts_result.scalars().all())
 
     task_ids: list[str] = []
+    act_task_map: dict[str, list[str]] = {}
     for act in acts:
+        act_task_map[act.slug] = []
         for lang in ("bn", "en"):
             result = ingest_act_language_task.delay(str(act.id), lang)
             task_ids.append(result.id)
+            act_task_map[act.slug].append(result.id)
+
+    # Store task IDs in Redis for cancellation
+    from app.db.redis import get_redis as _get_redis  # noqa: PLC0415
+    r = _get_redis()
+    if task_ids:
+        await r.sadd(_KEY_ALL, *task_ids)  # type: ignore[misc]
+        await r.expire(_KEY_ALL, _TTL)
+    for slug, ids in act_task_map.items():
+        if ids:
+            key = _KEY_ACT.format(slug=slug)
+            await r.sadd(key, *ids)  # type: ignore[misc]
+            await r.expire(key, _TTL)
 
     logger.info(
         "admin triggered all-acts ingestion",
@@ -180,6 +204,16 @@ async def ingest_act_route(
         result = ingest_act_language_task.delay(str(act.id), lang)
         task_ids.append(result.id)
 
+    # Store task IDs in Redis for cancellation
+    from app.db.redis import get_redis as _get_redis  # noqa: PLC0415
+    r = _get_redis()
+    if task_ids:
+        await r.sadd(_KEY_ALL, *task_ids)  # type: ignore[misc]
+        await r.expire(_KEY_ALL, _TTL)
+        key = _KEY_ACT.format(slug=slug)
+        await r.sadd(key, *task_ids)  # type: ignore[misc]
+        await r.expire(key, _TTL)
+
     logger.info(
         "admin triggered single-act ingestion",
         extra={"act_slug": slug, "act_id": str(act.id), "task_count": len(task_ids)},
@@ -188,6 +222,115 @@ async def ingest_act_route(
         task_ids=task_ids,
         message=f"Dispatched {len(task_ids)} ingestion tasks for act '{slug}'.",
     )
+
+
+@router.delete("/acts/ingest", status_code=200)
+async def cancel_all_ingestion(
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Revoke all active ingestion tasks and mark running DB rows as failed.
+
+    Args:
+        session: Async database session.
+
+    Returns:
+        dict: Revoked count and message.
+    """
+    from app.db.redis import get_redis as _get_redis  # noqa: PLC0415
+    from app.ingestion.tasks import celery_app  # noqa: PLC0415
+
+    r = _get_redis()
+    task_ids = list(await r.smembers(_KEY_ALL))  # type: ignore[misc]
+
+    if task_ids:
+        celery_app.control.revoke(task_ids, terminate=True, signal="SIGTERM")
+        await r.delete(_KEY_ALL)
+        # Also delete all per-act keys
+        act_keys = await r.keys(_KEY_ACT.format(slug="*"))
+        if act_keys:
+            await r.delete(*act_keys)
+
+    # Mark all running DB rows as failed
+    running_rows = list(
+        (
+            await session.execute(
+                select(IngestionRun).where(IngestionRun.status == "running")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for run in running_rows:
+        run.status = "failed"
+        run.error = "Cancelled by operator"
+    if running_rows:
+        await session.commit()
+
+    revoked = len(task_ids)
+    logger.info("admin cancelled all ingestion", extra={"revoked": revoked})
+    return {"revoked": revoked, "message": f"Revoked {revoked} tasks."}
+
+
+@router.delete("/acts/{slug}/ingest", status_code=200)
+async def cancel_act_ingestion(
+    slug: str,
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    """Revoke active ingestion tasks for one Act and mark running rows as failed.
+
+    Args:
+        slug: Act slug.
+        session: Async database session.
+
+    Returns:
+        dict: Revoked count and message.
+
+    Raises:
+        HTTPException: 404 when the slug is unknown.
+    """
+    from app.db.redis import get_redis as _get_redis  # noqa: PLC0415
+    from app.ingestion.tasks import celery_app  # noqa: PLC0415
+
+    act_result = await session.execute(select(Act).where(Act.slug == slug))
+    act = act_result.scalar_one_or_none()
+    if act is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Act with slug '{slug}' not found.",
+        )
+
+    r = _get_redis()
+    key = _KEY_ACT.format(slug=slug)
+    task_ids = list(await r.smembers(key))  # type: ignore[misc]
+
+    if task_ids:
+        celery_app.control.revoke(task_ids, terminate=True, signal="SIGTERM")
+        await r.delete(key)
+        # Remove from global set too
+        await r.srem(_KEY_ALL, *task_ids)  # type: ignore[misc]
+
+    # Mark running DB rows for this act as failed
+    running_rows = list(
+        (
+            await session.execute(
+                select(IngestionRun).where(
+                    IngestionRun.act_id == act.id,
+                    IngestionRun.status == "running",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for run in running_rows:
+        run.status = "failed"
+        run.error = "Cancelled by operator"
+    if running_rows:
+        await session.commit()
+
+    revoked = len(task_ids)
+    logger.info("admin cancelled act ingestion", extra={"act_slug": slug, "revoked": revoked})
+    return {"revoked": revoked, "message": f"Revoked {revoked} tasks for '{slug}'."}
 
 
 @router.get("/llm", response_model=LLMOverrideResponse)
