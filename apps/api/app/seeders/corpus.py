@@ -22,6 +22,7 @@ import random
 import uuid
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -682,10 +683,17 @@ class CorpusSeeder(Seeder):
                     db.add(section)
                     await db.flush()
 
-                source_base = (
-                    f"http://bdlaws.minlaw.gov.bd/act-details.html"
-                    f"?slug={act.slug}&section={spec.section_num}"
+                # Derive bdlaws numeric act ID from source YAML (e.g. act-952.html → "952")
+                import re as _re  # noqa: PLC0415
+                _yaml_path = (
+                    Path(__file__).parents[4] / "config" / "acts" / f"{act.slug}.yaml"
                 )
+                _act_id_match = None
+                if _yaml_path.exists():
+                    _yaml_text = _yaml_path.read_text()
+                    _act_id_match = _re.search(r"act-(\d+)\.html", _yaml_text)
+                act_yaml_id = _act_id_match.group(1) if _act_id_match else act.slug
+                source_base = f"http://bdlaws.minlaw.gov.bd/act-{act_yaml_id}.html"
 
                 for lang, text, t_status in [
                     ("bn", spec.text_bn, "authoritative"),
@@ -716,7 +724,7 @@ class CorpusSeeder(Seeder):
                         effective_to=None,
                         amending_act_id=None,
                         content_hash=_content_hash(text),
-                        source_url=source_base + f"&lang={lang}",
+                        source_url=source_base,
                     )
                     db.add(rev)
                     await db.flush()

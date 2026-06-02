@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 _SECTION_NUM_RE = re.compile(r"^(\d+[A-Z]?(?:\.\d+)?)[.\s]")
 _DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b|\b(\d{4})\b")
 _WHITESPACE = re.compile(r"\s+")
+_DETAIL_URL_RE = re.compile(r"act-details-(\d+)\.html", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,27 @@ class _Parser:
         """
         logger.warning("parse warning: %s", message, extra={"context": context[:200]})
         self.warnings.append(ParseWarning(message=message, context=context[:200]))
+
+    def _detail_url(self, node: Node) -> str:
+        """Extract per-section bdlaws URL from an act-details-{id}.html href.
+
+        Searches all ``<a>`` descendants of *node* for a bdlaws section detail
+        link.  Returns the canonical detail URL when found, otherwise falls back
+        to the act-level source URL.
+
+        Args:
+            node: DOM node to search.
+
+        Returns:
+            str: ``http://bdlaws.minlaw.gov.bd/act-details-{id}.html`` or the
+                act-level fallback URL.
+        """
+        for anchor in node.css("a[href]"):
+            href = anchor.attributes.get("href") or ""
+            m = _DETAIL_URL_RE.search(href)
+            if m:
+                return f"http://bdlaws.minlaw.gov.bd/act-details-{m.group(1)}.html"
+        return self._source_url
 
     def parse(self, html: str) -> ProvisionNode:
         """Parse a full bdlaws page HTML string into a ProvisionNode tree.
@@ -365,7 +387,7 @@ class _Parser:
             children=tuple(nested_children),
             effective_from=None,
             effective_to=None,
-            source_url=self._source_url,
+            source_url=self._detail_url(node),
         )
 
     def _parse_sub_node(self, node: Node) -> ProvisionNode | None:
@@ -494,7 +516,7 @@ class _Parser:
                         children=(),
                         effective_from=None,
                         effective_to=None,
-                        source_url=self._source_url,
+                        source_url=self._detail_url(table),
                     )
                 )
         return provisions
