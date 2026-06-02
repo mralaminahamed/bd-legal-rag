@@ -69,12 +69,21 @@ def format_citation(ctx: CitationContext, *, language: str) -> str:
     Returns:
         str: The formatted citation string.
     """
+    year_str = str(ctx.act_year)
     if language == "bn":
-        bn_year = to_bn_numerals(str(ctx.act_year))
+        bn_year = to_bn_numerals(year_str)
         bn_section = to_bn_numerals(ctx.section_ref)
-        text = f"{ctx.act_name_bn}, {bn_year}-এর ধারা {bn_section}"
+        # Avoid duplicating year if act_name_bn already contains it
+        if year_str in ctx.act_name_bn or to_bn_numerals(year_str) in ctx.act_name_bn:
+            text = f"{ctx.act_name_bn}-এর ধারা {bn_section}"
+        else:
+            text = f"{ctx.act_name_bn}, {bn_year}-এর ধারা {bn_section}"
     else:
-        text = f"Section {ctx.section_ref} of {ctx.act_name_en}, {ctx.act_year}"
+        # Avoid duplicating year if act_name_en already ends with the year
+        if ctx.act_name_en.rstrip().endswith(year_str):
+            text = f"Section {ctx.section_ref} of {ctx.act_name_en}"
+        else:
+            text = f"Section {ctx.section_ref} of {ctx.act_name_en}, {ctx.act_year}"
     if ctx.source_url:
         return f"[{text}]({ctx.source_url})"
     return text

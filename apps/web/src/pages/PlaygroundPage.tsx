@@ -27,50 +27,6 @@ interface Message {
   status: "streaming" | "done" | "error";
 }
 
-// ── bdlaws source URLs (from config/acts/*.yaml) ──────────────────────────────
-
-const BDLAWS_URLS: Record<string, string> = {
-  "code-of-civil-procedure-1908": "http://bdlaws.minlaw.gov.bd/act-86.html",
-  "code-of-criminal-procedure-1898": "http://bdlaws.minlaw.gov.bd/act-75.html",
-  "companies-act-1994": "http://bdlaws.minlaw.gov.bd/act-788.html",
-  "constitution-of-bangladesh-1972": "http://bdlaws.minlaw.gov.bd/act-367.html",
-  "contract-act-1872": "http://bdlaws.minlaw.gov.bd/act-26.html",
-  "digital-security-act-2018": "http://bdlaws.minlaw.gov.bd/act-1261.html",
-  "evidence-act-1872": "http://bdlaws.minlaw.gov.bd/act-24.html",
-  "income-tax-act-2023": "http://bdlaws.minlaw.gov.bd/act-1429.html",
-  "labour-act-2006": "http://bdlaws.minlaw.gov.bd/act-952.html",
-  "limitation-act-1908": "http://bdlaws.minlaw.gov.bd/act-88.html",
-  "negotiable-instruments-act-1881": "http://bdlaws.minlaw.gov.bd/act-46.html",
-  "partnership-act-1932": "http://bdlaws.minlaw.gov.bd/act-157.html",
-  "penal-code-1860": "http://bdlaws.minlaw.gov.bd/act-11.html",
-  "specific-relief-act-1877": "http://bdlaws.minlaw.gov.bd/act-36.html",
-  "transfer-of-property-act-1882": "http://bdlaws.minlaw.gov.bd/act-48.html",
-  "vat-sd-act-2012": "http://bdlaws.minlaw.gov.bd/act-1106.html",
-};
-
-interface ParsedRef {
-  label: string;   // full citation string
-  section: string; // e.g. "103"
-  url: string;     // bdlaws URL
-}
-
-function parseRefs(citations: string[], actsData: { slug: string; full_name_en: string }[]): ParsedRef[] {
-  return citations
-    .map((cite) => {
-      // Match "Section 103 of The Bangladesh Labour Act, 2006"
-      const m = cite.match(/Section\s+([\w()]+)\s+of\s+(.+)/i);
-      if (!m) return null;
-      const [, section, _actName] = m;
-      const act = actsData.find(
-        (a) => cite.toLowerCase().includes(a.full_name_en.toLowerCase().slice(4)),
-      );
-      const url = act ? (BDLAWS_URLS[act.slug] ?? "") : "";
-      if (!url) return null;
-      return { label: cite, section: section ?? "", url };
-    })
-    .filter((r): r is ParsedRef => r !== null);
-}
-
 // ── i18n ──────────────────────────────────────────────────────────────────────
 
 const UI_STRINGS = {
@@ -79,9 +35,9 @@ const UI_STRINGS = {
     send: "Ask",
     sending: "Thinking…",
     disclaimer_label: "Legal Disclaimer",
-    declined: "This question requires legal advice. Please consult a qualified lawyer.",
+    declined: "No relevant provisions were found for this query in the indexed Acts.",
     empty_title: "New legal conversation",
-    empty_sub: "Search across Bangladeshi statute law — Labour, Tax, VAT, Digital Security, Companies Acts.",
+    empty_sub: "Search across 16 Bangladeshi statute laws — ask a question, request a summary, list sections, or ask for legal guidance.",
     new_chat: "New chat",
   },
   bn: {
@@ -89,18 +45,18 @@ const UI_STRINGS = {
     send: "জিজ্ঞাসা করুন",
     sending: "চিন্তা করছি…",
     disclaimer_label: "আইনি দায়মুক্তি",
-    declined: "এই প্রশ্নের উত্তর দেওয়া সম্ভব নয় — একজন যোগ্য আইনজীবীর পরামর্শ নিন।",
+    declined: "ইন্ডেক্স করা আইনে এই প্রশ্নের জন্য প্রাসঙ্গিক কোনো বিধান পাওয়া যায়নি।",
     empty_title: "নতুন আইনি কথোপকথন",
-    empty_sub: "বাংলা বা ইংরেজিতে বাংলাদেশের আইন অনুসন্ধান করুন।",
+    empty_sub: "১৬টি বাংলাদেশী আইন জুড়ে অনুসন্ধান করুন — প্রশ্ন করুন, সারসংক্ষেপ চান, ধারার তালিকা দেখুন।",
     new_chat: "নতুন চ্যাট",
   },
 } as const;
 
 const EXAMPLE_QUESTIONS = [
-  "What is the weekly holiday entitlement under the Labour Act?",
-  "What constitutes digital security offences?",
-  "শ্রম আইনে কর্মীর সাপ্তাহিক ছুটির বিধান কী?",
-  "How many directors does a public company require?",
+  "What is the penalty for digital fraud under the DSA?",
+  "Summarize the Labour Act 2006",
+  "List sections of the Companies Act 1994",
+  "Can my employer deduct wages without notice?",
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -119,12 +75,14 @@ function AiBubble({
   msg,
   disclaimerLabel,
   declinedText,
-  actsData,
+  onFeedback,
+  feedbackGiven,
 }: {
   msg: Message;
   disclaimerLabel: string;
   declinedText: string;
-  actsData: { slug: string; full_name_en: string }[];
+  onFeedback: (msgId: string, rating: string) => void;
+  feedbackGiven: Record<string, string>;
 }) {
   const answerBody =
     msg.disclaimer && msg.answer.includes(msg.disclaimer)
@@ -207,32 +165,34 @@ function AiBubble({
           </div>
         )}
 
-        {msg.status === "done" && msg.citations.length > 0 && (() => {
-          const refs = parseRefs(msg.citations, actsData);
-          if (refs.length === 0) return null;
-          return (
-            <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <i className="ti ti-books text-primary text-xs" />
-                References
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {refs.map((ref, i) => (
-                  <a
-                    key={i}
-                    href={ref.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-start gap-2 text-xs text-muted-foreground hover:text-primary transition-colors group"
-                  >
-                    <i className="ti ti-external-link text-[10px] shrink-0 mt-0.5 group-hover:text-primary" />
-                    <span className="leading-snug group-hover:underline underline-offset-2">{ref.label}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
+        {msg.status === "done" && !msg.declined && (
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] text-muted-foreground mr-1">Helpful?</span>
+            {feedbackGiven[msg.id] ? (
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <i className="ti ti-check text-xs text-success" />
+                Thanks for the feedback
+              </span>
+            ) : (
+              <>
+                <button
+                  onClick={() => onFeedback(msg.id, "helpful")}
+                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-success transition-colors"
+                  title="Helpful"
+                >
+                  <i className="ti ti-thumb-up text-xs" />
+                </button>
+                <button
+                  onClick={() => onFeedback(msg.id, "not_helpful")}
+                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
+                  title="Not helpful"
+                >
+                  <i className="ti ti-thumb-down text-xs" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -263,6 +223,7 @@ export function PlaygroundPage() {
   const [actSlug, setActSlug] = useState("");
   const { uiLang } = useLang();
   const [isStreaming, setIsStreaming] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<string, string>>({});
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -319,6 +280,19 @@ export function PlaygroundPage() {
     navigate(`/playground/${crypto.randomUUID()}`);
     setTimeout(() => textareaRef.current?.focus(), 100);
   }, [navigate]);
+
+  async function handleFeedback(msgId: string, rating: string) {
+    setFeedbackGiven((prev) => ({ ...prev, [msgId]: rating }));
+    try {
+      await fetch(`${API_BASE_URL}/api/v1/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query_id: msgId, rating }),
+      });
+    } catch {
+      // fire-and-forget
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -491,7 +465,8 @@ export function PlaygroundPage() {
                   msg={msg}
                   disclaimerLabel={s.disclaimer_label}
                   declinedText={s.declined}
-                  actsData={actsQ.data ?? []}
+                  onFeedback={handleFeedback}
+                  feedbackGiven={feedbackGiven}
                 />
               </div>
             ))}

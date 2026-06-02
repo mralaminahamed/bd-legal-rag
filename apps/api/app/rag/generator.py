@@ -149,7 +149,15 @@ def _build_citation_contexts(
         if act is None:
             continue
         path_parts = chunk.hierarchy_path.split(" > ")
-        section_ref = path_parts[-1] if path_parts else str(chunk.chunk_id)[:8]
+        raw_ref = path_parts[-1] if path_parts else str(chunk.chunk_id)[:8]
+        # Strip leading "Section/Part/Chapter " prefix — format_citation adds it
+        import re as _re  # noqa: PLC0415
+        section_ref = _re.sub(
+            r"^(?:section|part|chapter|sub-section|clause)\s+",
+            "",
+            raw_ref,
+            flags=_re.IGNORECASE,
+        ).strip()
         contexts[str(chunk.chunk_id)] = CitationContext(
             chunk_id=str(chunk.chunk_id),
             act_name_en=act.full_name_en,
