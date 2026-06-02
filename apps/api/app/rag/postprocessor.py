@@ -14,6 +14,8 @@ import re
 # English filler openers — case-insensitive prefix patterns
 _EN_FILLER = re.compile(
     r"^(?:"
+    r"\*\*answer:\*\*\s*|"
+    r"answer:\s*|"
     r"certainly[!,.]?\s*|"
     r"sure[!,.]?\s*|"
     r"of\s+course[!,.]?\s*|"
@@ -33,6 +35,8 @@ _EN_FILLER = re.compile(
 # Bengali filler openers
 _BN_FILLER = re.compile(
     r"^(?:"
+    r"\*\*উত্তর:\*\*\s*|"
+    r"উত্তর:\s*|"
     r"অবশ্যই[!,।]?\s*|"
     r"নিশ্চয়ই[!,।]?\s*|"
     r"অবশ্যই[!,।]?\s*|"
