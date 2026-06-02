@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLang } from "@/lib/langContext";
 import { useQuery } from "@tanstack/react-query";
 import { getActs, getThread } from "@/api/query";
@@ -442,6 +442,12 @@ export function PlaygroundPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/threads">
+              <i className="ti ti-messages text-sm" />
+              History
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" onClick={startNewThread}>
             <i className="ti ti-pencil-plus text-sm" />
             {s.new_chat}

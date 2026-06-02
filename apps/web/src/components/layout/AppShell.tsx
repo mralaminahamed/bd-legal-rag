@@ -10,6 +10,7 @@ import { ThemeToggle } from "./ThemeToggle";
 const NAV = [
   { to: "/", label: "Dashboard", icon: "ti-layout-dashboard", end: true },
   { to: "/acts", label: "Acts Registry", icon: "ti-books", end: false },
+  { to: "/threads", label: "Conversations", icon: "ti-messages", end: false },
   {
     to: "/playground",
     label: "Playground",

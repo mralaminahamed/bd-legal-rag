@@ -22,7 +22,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db, rate_limit
@@ -31,8 +31,10 @@ from app.api.schemas import (
     FeedbackResponse,
     QueryRequest,
     QueryResponse,
+    ThreadListResponse,
     ThreadMessage,
     ThreadResponse,
+    ThreadSummary,
 )
 from app.config import Settings, get_settings
 from app.db.models import Act, Feedback, Query
@@ -424,3 +426,72 @@ async def thread_endpoint(
     ]
 
     return ThreadResponse(thread_id=thread_id, messages=messages)
+
+
+@router.get(
+    "/threads",
+    response_model=ThreadListResponse,
+    summary="List all playground threads ordered by last activity",
+)
+async def list_threads_endpoint(
+    limit: int = 50,
+    offset: int = 0,
+    session: AsyncSession = Depends(get_db),
+) -> ThreadListResponse:
+    """Return all distinct playground threads with summary metadata.
+
+    Only threads with a non-empty correlation_id (playground threads) are
+    included. Results are ordered by last activity descending so the most
+    recent conversations appear first.
+
+    Args:
+        limit: Maximum threads to return (default 50).
+        offset: Pagination offset (default 0).
+        session: Async database session.
+
+    Returns:
+        ThreadListResponse: Paginated thread summaries.
+    """
+    # Each thread = one distinct non-empty correlation_id
+    # Aggregate: first question, count, last activity, last detected_language
+    agg_sql = text(
+        """
+        SELECT
+            correlation_id                              AS thread_id,
+            (array_agg(query_text ORDER BY created_at))[1] AS first_question,
+            COUNT(*)                                    AS message_count,
+            MAX(created_at)                             AS last_activity,
+            (array_agg(detected_language ORDER BY created_at DESC))[1] AS detected_language
+        FROM queries
+        WHERE correlation_id IS NOT NULL
+          AND correlation_id <> ''
+        GROUP BY correlation_id
+        ORDER BY last_activity DESC
+        LIMIT :limit OFFSET :offset
+        """
+    )
+
+    count_sql = text(
+        """
+        SELECT COUNT(DISTINCT correlation_id)
+        FROM queries
+        WHERE correlation_id IS NOT NULL
+          AND correlation_id <> ''
+        """
+    )
+
+    rows = (await session.execute(agg_sql, {"limit": limit, "offset": offset})).mappings().all()
+    total: int = (await session.execute(count_sql)).scalar_one() or 0
+
+    threads = [
+        ThreadSummary(
+            thread_id=str(row["thread_id"]),
+            first_question=str(row["first_question"]),
+            message_count=int(row["message_count"]),
+            last_activity=row["last_activity"],
+            detected_language=row["detected_language"],
+        )
+        for row in rows
+    ]
+
+    return ThreadListResponse(threads=threads, total=total)

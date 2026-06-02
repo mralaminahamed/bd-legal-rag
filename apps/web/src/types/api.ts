@@ -36,6 +36,19 @@ export interface ThreadResponse {
   messages: ThreadMessage[];
 }
 
+export interface ThreadSummary {
+  thread_id: string;
+  first_question: string;
+  message_count: number;
+  last_activity: string;
+  detected_language: string | null;
+}
+
+export interface ThreadListResponse {
+  threads: ThreadSummary[];
+  total: number;
+}
+
 export interface ActSummary {
   id: string;
   slug: string;

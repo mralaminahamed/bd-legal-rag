@@ -5,8 +5,8 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { ActsPage } from "@/pages/ActsPage";
 import { CorpusPage } from "@/pages/CorpusPage";
 import { PlaygroundPage } from "@/pages/PlaygroundPage";
+import { ThreadsPage } from "@/pages/ThreadsPage";
 
-// /playground → redirect to /playground/:uuid (new thread each visit)
 function PlaygroundRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
@@ -23,6 +23,7 @@ export const router = createBrowserRouter([
       { index: true, element: <DashboardPage /> },
       { path: "acts", element: <ActsPage /> },
       { path: "corpus", element: <CorpusPage /> },
+      { path: "threads", element: <ThreadsPage /> },
       { path: "playground", element: <PlaygroundRedirect /> },
       { path: "playground/:threadId", element: <PlaygroundPage /> },
     ],

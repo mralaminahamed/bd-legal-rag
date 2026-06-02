@@ -142,6 +142,36 @@ class ThreadResponse(BaseModel):
     messages: list[ThreadMessage]
 
 
+class ThreadSummary(BaseModel):
+    """Brief descriptor for one playground thread (list view).
+
+    Attributes:
+        thread_id: The correlation ID / playground thread UUID.
+        first_question: The first question asked in this thread.
+        message_count: Total number of messages in the thread.
+        last_activity: Timestamp of the most recent message.
+        detected_language: Language of the most recent message.
+    """
+
+    thread_id: str
+    first_question: str
+    message_count: int
+    last_activity: datetime
+    detected_language: str | None
+
+
+class ThreadListResponse(BaseModel):
+    """Paginated list of playground threads.
+
+    Attributes:
+        threads: Summaries ordered by last_activity descending.
+        total: Total number of threads (before pagination).
+    """
+
+    threads: list[ThreadSummary]
+    total: int
+
+
 class ActSummary(BaseModel):
     """Brief Act descriptor for list responses.
 
