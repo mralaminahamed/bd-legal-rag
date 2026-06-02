@@ -26,7 +26,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.config import Settings, get_settings
-from app.db.engine import get_sessionmaker
+from app.db.engine import get_worker_sessionmaker
 from app.db.models import Act, Chunk, IngestionRun, Provision, ProvisionRevision
 from app.ingestion.amendments import latest_amendment
 from app.ingestion.crawler import BdlawsFetchError, CrawlResult, fetch_act_page
@@ -52,6 +52,8 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
 )
+
+
 
 
 def _content_hash(text: str) -> str:
@@ -439,7 +441,7 @@ async def ingest_act_language(
     Returns:
         IngestSummary: Counts and status for this ingestion run.
     """
-    factory = sessionmaker or get_sessionmaker()
+    factory = sessionmaker or get_worker_sessionmaker()
 
     # --- Create the run row ---
     run_id: uuid.UUID | None = None

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
@@ -95,6 +96,31 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
         except Exception:
             await session.rollback()
             raise
+
+
+def get_worker_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """Return a session factory using NullPool — safe for Celery fork workers.
+
+    Celery fork workers inherit the parent process's pooled engine, whose
+    asyncpg connections are bound to the parent event loop.  Using NullPool
+    avoids the pool entirely: each ``connect()`` opens a fresh connection and
+    closes it when the session ends.  There is no connection reuse across
+    ``asyncio.run()`` calls so the event-loop mismatch cannot occur.
+
+    Returns:
+        async_sessionmaker[AsyncSession]: Session factory with NullPool engine.
+    """
+    settings = get_settings()
+    worker_engine = create_async_engine(
+        settings.database_dsn,
+        poolclass=NullPool,
+        future=True,
+    )
+    return async_sessionmaker(
+        bind=worker_engine,
+        expire_on_commit=False,
+        autoflush=False,
+    )
 
 
 async def dispose_engine() -> None:
