@@ -62,6 +62,7 @@ export function AppShell() {
   const { uiLang, setUiLang } = useLang();
   const location = useLocation();
   const isPlayground = location.pathname.startsWith("/playground");
+  const isReader = location.pathname.includes("/read");
 
   function toggleCollapsed() {
     setCollapsed((c) => {
@@ -184,7 +185,7 @@ export function AppShell() {
         </header>
 
         {/* Page content */}
-        <main className="mx-auto w-full max-w-[1100px] p-6">
+        <main className={cn("p-6", !isReader && "mx-auto w-full max-w-[1100px]")}>
           <Outlet />
         </main>
       </div>
