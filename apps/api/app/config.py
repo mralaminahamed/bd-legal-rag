@@ -183,6 +183,7 @@ class Settings(BaseSettings):
     # Changing them is a behavioural change and requires the eval harness to pass.
     active_disclaimer_version: str = "v1"
     active_decline_version: str = "v1"
+    active_prompt_version: str = "v2"
 
     # --- Caching (§2.5) ---
     response_cache_ttl_seconds: int = Field(default=86_400, ge=0)

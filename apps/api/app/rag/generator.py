@@ -44,6 +44,7 @@ from app.prompts.safety import disclaimer as disclaimer_mod
 from app.rag.citation import CitationContext, format_citation, resolve_placeholders
 from app.rag.decline_gate import classify as decline_classify
 from app.rag.guardrails import scan as guardrails_scan
+from app.rag.postprocessor import strip_filler
 from app.rag.retriever import RetrievedChunk
 from app.rag.service import RetrievalResult
 
@@ -263,7 +264,7 @@ async def generate(
         language = "en"
 
     prompt_family = "legal_answer"
-    prompt_version = "v1"
+    prompt_version = s.active_prompt_version
     disclaimer_version = s.active_disclaimer_version
     decline_version = s.active_decline_version
     reranker_version = s.rerank_model
@@ -423,6 +424,7 @@ async def generate(
         )
 
     resolved = resolve_placeholders(raw_text, contexts=contexts, language=language)
+    resolved = strip_filler(resolved)
     answer = disclaimer_mod.inject(resolved, version=disclaimer_version, language=language)
 
     if cache:
@@ -469,7 +471,7 @@ async def generate_stream(
         language = "en"
 
     prompt_family = "legal_answer"
-    prompt_version = "v1"
+    prompt_version = s.active_prompt_version
     disclaimer_version = s.active_disclaimer_version
     decline_version = s.active_decline_version
     reranker_version = s.rerank_model
@@ -688,6 +690,7 @@ async def generate_stream(
 
     # ── 8. Validate citations and emit final event ────────────────────────────
     resolved = resolve_placeholders(raw_text, contexts=contexts, language=language)
+    resolved = strip_filler(resolved)
     answer = disclaimer_mod.inject(resolved, version=disclaimer_version, language=language)
 
     if cache:
