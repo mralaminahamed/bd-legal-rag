@@ -115,10 +115,6 @@ export function AppShell() {
           ))}
 
           <div className="mt-auto pt-2">
-            <hr
-              className={cn("mb-2", collapsed ? "mx-1" : "mx-2")}
-              style={{ borderColor: "var(--nav-border)" }}
-            />
             <button
               onClick={toggleCollapsed}
               title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -135,22 +131,10 @@ export function AppShell() {
                   collapsed ? "ti-chevrons-right" : "ti-chevrons-left",
                 )}
               />
-              {!collapsed && <span className="flex-1">Collapse</span>}
+              {!collapsed && <span className="flex-1 text-xs">Collapse</span>}
             </button>
           </div>
         </nav>
-
-        {/* Footer */}
-        <div
-          className={cn(
-            "border-t flex items-center gap-2 shrink-0",
-            collapsed ? "flex-col py-3 px-0 justify-center" : "px-4 py-3",
-          )}
-          style={{ borderColor: "var(--nav-border)" }}
-        >
-          <ConnectionBadge collapsed={collapsed} />
-          <ThemeToggle />
-        </div>
       </aside>
 
       {/* Main */}
