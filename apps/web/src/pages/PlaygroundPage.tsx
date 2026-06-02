@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getActs } from "@/api/query";
+import { getActs, getThread } from "@/api/query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
@@ -24,34 +24,6 @@ interface Message {
   cached: boolean;
   degraded: boolean;
   status: "streaming" | "done" | "error";
-}
-
-// ── Storage ───────────────────────────────────────────────────────────────────
-
-const STORAGE_PREFIX = "bd-legal-rag:thread:";
-
-function loadMessages(threadId: string): Message[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + threadId);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Message[];
-    // Reset any interrupted streaming messages to error state
-    return parsed.map((m) =>
-      m.status === "streaming" ? { ...m, status: "error", streamText: "" } : m,
-    );
-  } catch {
-    return [];
-  }
-}
-
-function saveMessages(threadId: string, messages: Message[]): void {
-  try {
-    // Only persist completed messages
-    const toSave = messages.filter((m) => m.status !== "streaming");
-    localStorage.setItem(STORAGE_PREFIX + threadId, JSON.stringify(toSave));
-  } catch {
-    // localStorage full — ignore
-  }
 }
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
@@ -194,6 +166,19 @@ function AiBubble({
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Strip disclaimer from end of answer — it's shown separately. */
+function extractDisclaimer(answer: string): { body: string; disclaimer: string | null } {
+  // The disclaimer always starts with "**Disclaimer:**" or "**দায়মুক্তি:**"
+  const idx = answer.search(/\*\*(?:Disclaimer|দায়মুক্তি):/);
+  if (idx === -1) return { body: answer, disclaimer: null };
+  return {
+    body: answer.slice(0, idx).trimEnd(),
+    disclaimer: answer.slice(idx).trim(),
+  };
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function PlaygroundPage() {
@@ -201,9 +186,7 @@ export function PlaygroundPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [messages, setMessages] = useState<Message[]>(() =>
-    threadId ? loadMessages(threadId) : [],
-  );
+  const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState(() => searchParams.get("q") ?? "");
   const [actSlug, setActSlug] = useState("");
   const [uiLang, setUiLang] = useState<UILang>("en");
@@ -215,7 +198,7 @@ export function PlaygroundPage() {
   const actsQ = useQuery({ queryKey: ["acts"], queryFn: getActs, staleTime: Infinity });
   const s = UI_STRINGS[uiLang];
 
-  // Clear ?q param from URL once we've read it into state
+  // Clear ?q param after reading
   useEffect(() => {
     if (searchParams.get("q")) {
       setSearchParams({}, { replace: true });
@@ -223,20 +206,36 @@ export function PlaygroundPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load messages when threadId changes (navigating between threads)
+  // Load thread from server when threadId changes
   useEffect(() => {
-    if (threadId) {
-      setMessages(loadMessages(threadId));
-      setIsStreaming(false);
-    }
-  }, [threadId]);
+    if (!threadId) return;
+    setIsStreaming(false);
 
-  // Persist completed messages on change
-  useEffect(() => {
-    if (threadId && messages.length > 0) {
-      saveMessages(threadId, messages);
-    }
-  }, [threadId, messages]);
+    getThread(threadId)
+      .then((thread) => {
+        const loaded: Message[] = thread.messages.map((m) => {
+          const { body, disclaimer } = extractDisclaimer(m.answer ?? "");
+          return {
+            id: m.id,
+            question: m.question,
+            answer: m.answer ?? "",
+            streamText: "",
+            disclaimer,
+            declined: m.declined,
+            cached: m.cached,
+            degraded: m.degraded,
+            status: "done" as const,
+            // override with extracted body if disclaimer found
+            ...(disclaimer ? { answer: body } : {}),
+          };
+        });
+        setMessages(loaded);
+      })
+      .catch(() => {
+        // New thread or fetch failed — start empty
+        setMessages([]);
+      });
+  }, [threadId]);
 
   // Auto-scroll
   useEffect(() => {
@@ -271,7 +270,10 @@ export function PlaygroundPage() {
     try {
       const resp = await fetch(`${API_BASE_URL}/api/v1/query/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Correlation-ID": threadId,  // binds this message to the thread in DB
+        },
         body: JSON.stringify({
           question: msg.question,
           act_slug: actSlug || null,
@@ -313,13 +315,14 @@ export function PlaygroundPage() {
               ),
             );
           } else if (event.type === "final") {
+            const { body, disclaimer } = extractDisclaimer(event.answer ?? "");
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === msg.id
                   ? {
                       ...m,
-                      answer: event.answer ?? "",
-                      disclaimer: event.disclaimer,
+                      answer: body || event.answer || "",
+                      disclaimer: disclaimer ?? event.disclaimer,
                       declined: event.declined,
                       cached: event.cached,
                       degraded: event.degraded,

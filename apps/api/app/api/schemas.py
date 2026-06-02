@@ -102,6 +102,46 @@ class FeedbackResponse(BaseModel):
     rating: str
 
 
+class ThreadMessage(BaseModel):
+    """One message in a playground thread (a logged Query row).
+
+    Attributes:
+        id: UUID of the Query row.
+        question: The original query text.
+        answer: The generated answer (may include disclaimer).
+        disclaimer: Extracted disclaimer text, if available.
+        declined: Whether the query was declined.
+        cached: Whether the response was served from cache.
+        degraded: Whether fail-open mode was used.
+        confidence_tier: HIGH, MEDIUM, LOW, or None.
+        detected_language: Language detected from the query.
+        created_at: Timestamp the query was logged.
+    """
+
+    id: str
+    question: str
+    answer: str | None
+    disclaimer: str | None
+    declined: bool
+    cached: bool
+    degraded: bool
+    confidence_tier: str | None
+    detected_language: str | None
+    created_at: datetime
+
+
+class ThreadResponse(BaseModel):
+    """All messages for a playground thread.
+
+    Attributes:
+        thread_id: The correlation ID / playground thread UUID.
+        messages: Ordered list of query messages (oldest first).
+    """
+
+    thread_id: str
+    messages: list[ThreadMessage]
+
+
 class ActSummary(BaseModel):
     """Brief Act descriptor for list responses.
 

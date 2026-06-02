@@ -31,6 +31,8 @@ from app.api.schemas import (
     FeedbackResponse,
     QueryRequest,
     QueryResponse,
+    ThreadMessage,
+    ThreadResponse,
 )
 from app.config import Settings, get_settings
 from app.db.models import Act, Feedback, Query
@@ -375,3 +377,50 @@ async def feedback_endpoint(
         query_id=body.query_id,
         rating=body.rating,
     )
+
+
+@router.get(
+    "/thread/{thread_id}",
+    response_model=ThreadResponse,
+    summary="Retrieve all messages in a playground thread",
+)
+async def thread_endpoint(
+    thread_id: str,
+    session: AsyncSession = Depends(get_db),
+) -> ThreadResponse:
+    """Return all Query rows whose correlation_id matches thread_id, oldest first.
+
+    The playground sends the thread UUID as the ``X-Correlation-ID`` header on
+    every stream request so all messages in a conversation share a correlation_id.
+
+    Args:
+        thread_id: The playground thread UUID (correlation_id on Query rows).
+        session: Async database session.
+
+    Returns:
+        ThreadResponse: Ordered list of messages for this thread.
+    """
+    result = await session.execute(
+        select(Query)
+        .where(Query.correlation_id == thread_id)
+        .order_by(Query.created_at),
+    )
+    rows = list(result.scalars().all())
+
+    messages = [
+        ThreadMessage(
+            id=str(q.id),
+            question=q.query_text,
+            answer=q.response_text,
+            disclaimer=None,  # embedded in response_text; extracted client-side
+            declined=q.declined,
+            cached=q.cached,
+            degraded=q.degraded,
+            confidence_tier=q.confidence_tier,
+            detected_language=q.detected_language,
+            created_at=q.created_at,
+        )
+        for q in rows
+    ]
+
+    return ThreadResponse(thread_id=thread_id, messages=messages)

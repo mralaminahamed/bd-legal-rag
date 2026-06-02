@@ -18,6 +18,24 @@ export interface FeedbackResponse {
   rating: string;
 }
 
+export interface ThreadMessage {
+  id: string;
+  question: string;
+  answer: string | null;
+  disclaimer: string | null;
+  declined: boolean;
+  cached: boolean;
+  degraded: boolean;
+  confidence_tier: "HIGH" | "MEDIUM" | "LOW" | null;
+  detected_language: string | null;
+  created_at: string;
+}
+
+export interface ThreadResponse {
+  thread_id: string;
+  messages: ThreadMessage[];
+}
+
 export interface ActSummary {
   id: string;
   slug: string;
