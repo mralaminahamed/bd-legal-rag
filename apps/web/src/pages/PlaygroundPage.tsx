@@ -54,20 +54,52 @@ const UI_STRINGS = {
   },
 } as const;
 
-const EXAMPLE_QUESTIONS = [
-  "What is the penalty for digital fraud under the DSA?",
-  "Summarize the Labour Act 2006",
-  "List sections of the Companies Act 1994",
-  "Can my employer deduct wages without notice?",
+interface ExampleCard {
+  question: string;
+  category: string;
+  icon: string;
+}
+
+const EXAMPLE_CARDS: ExampleCard[] = [
+  {
+    question: "What is the penalty for digital fraud under the DSA?",
+    category: "Penalty",
+    icon: "ti ti-gavel",
+  },
+  {
+    question: "Summarize the Labour Act 2006",
+    category: "Summary",
+    icon: "ti ti-file-text",
+  },
+  {
+    question: "List sections of the Companies Act 1994",
+    category: "Reference",
+    icon: "ti ti-list-numbers",
+  },
+  {
+    question: "Can my employer deduct wages without notice?",
+    category: "Rights",
+    icon: "ti ti-users",
+  },
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function UserBubble({ question }: { question: string }) {
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[80%] rounded-xl rounded-br-sm bg-primary px-4 py-2.5">
-        <p className="text-sm text-primary-foreground leading-relaxed">{question}</p>
+    <div className="flex justify-end gap-2">
+      <div className="max-w-[80%] space-y-1">
+        <div className="rounded-xl rounded-br-sm bg-gradient-to-br from-primary/90 to-primary px-4 py-2.5 shadow-sm">
+          <p className="text-sm text-primary-foreground leading-relaxed">{question}</p>
+        </div>
+        <div className="flex items-center gap-1.5 px-1">
+          <span className="text-[10px] text-muted-foreground/50">You</span>
+          <span className="text-[10px] text-muted-foreground/30">·</span>
+          <span className="text-[10px] text-muted-foreground/30">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+      </div>
+      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1 ring-1 ring-primary/15">
+        <i className="ti ti-user text-xs text-primary/70" />
       </div>
     </div>
   );
@@ -93,14 +125,17 @@ function AiBubble({
 
   return (
     <div className="flex gap-3">
-      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5 ring-1 ring-primary/10">
-        <i className="ti ti-scale text-xs text-primary" />
+      <div className="flex flex-col items-center gap-0.5 shrink-0">
+        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center ring-1 ring-primary/10">
+          <i className="ti ti-scale text-xs text-primary" />
+        </div>
+        <span className="text-[7px] font-semibold text-primary/40 tracking-widest uppercase">RAG</span>
       </div>
 
-      <div className="flex-1 max-w-[88%] space-y-2.5">
+      <div className="flex-1 max-w-[88%] space-y-2">
         <div className="rounded-xl rounded-tl-sm ring-1 ring-foreground/10 bg-card p-4 shadow-sm">
           {msg.status === "done" && (msg.declined || msg.degraded || msg.cached) && (
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
               {msg.declined && (
                 <Badge variant="destructive">
                   <i className="ti ti-ban text-[10px] mr-0.5" />Declined
@@ -182,32 +217,32 @@ function AiBubble({
         )}
 
         {msg.status === "done" && !msg.declined && (
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] text-muted-foreground mr-1">Helpful?</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground/60">Helpful?</span>
             {feedbackGiven[msg.id] ? (
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <i className="ti ti-check text-xs text-success" />
+              <span className="flex items-center gap-1.5 text-[11px] text-success/80">
+                <i className="ti ti-check text-xs" />
                 Thanks for the feedback
               </span>
             ) : (
-              <>
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => onFeedback(msg.id, "helpful")}
-                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-success transition-colors"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-success/10 text-muted-foreground hover:text-success transition-all duration-200 active:scale-90"
                   aria-label="Mark as helpful"
                   title="Helpful"
                 >
-                  <i className="ti ti-thumb-up text-xs" />
+                  <i className="ti ti-thumb-up text-sm" />
                 </button>
                 <button
                   onClick={() => onFeedback(msg.id, "not_helpful")}
-                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200 active:scale-90"
                   aria-label="Mark as not helpful"
                   title="Not helpful"
                 >
-                  <i className="ti ti-thumb-down text-xs" />
+                  <i className="ti ti-thumb-down text-sm" />
                 </button>
-              </>
+              </div>
             )}
           </div>
         )}
@@ -515,10 +550,10 @@ export function PlaygroundPage() {
             </span>
             {currentProvider && (
               <>
-                <span className="text-border/50">·</span>
-                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/60 border border-border/50 rounded-full px-2 py-0.5">
+                <span className="text-border/50 hidden sm:inline">·</span>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-muted-foreground/60 bg-muted/40 border border-border/30 rounded-full px-2 py-0.5">
                   <i className="ti ti-cpu text-[9px]" />
-                  {currentProvider} {currentModel}
+                  {currentProvider}
                 </span>
               </>
             )}
@@ -633,20 +668,25 @@ export function PlaygroundPage() {
             <h2 className="text-lg font-semibold text-foreground mb-1.5">{s.empty_title}</h2>
             <p className="text-sm text-muted-foreground max-w-md mb-8 leading-relaxed">{s.empty_sub}</p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-2xl">
-              {EXAMPLE_QUESTIONS.map((q, i) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+              {EXAMPLE_CARDS.map((card, i) => (
                 <button
-                  key={q}
-                  onClick={() => setQuestion(q)}
-                  className="text-left p-3.5 rounded-xl ring-1 ring-foreground/10 bg-card hover:bg-muted/70 hover:ring-primary/20 transition-all duration-200 group"
+                  key={i}
+                  onClick={() => setQuestion(card.question)}
+                  className="text-left p-4 rounded-xl ring-1 ring-foreground/8 bg-gradient-to-br from-background to-muted/30 hover:ring-2 hover:ring-primary/25 hover:shadow-md hover:shadow-primary/5 transition-all duration-300 group active:scale-[0.98]"
                 >
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-6 h-6 rounded-md bg-muted group-hover:bg-primary/10 flex items-center justify-center shrink-0 mt-0.5 transition-colors">
-                      <span className="text-[10px] font-medium text-muted-foreground group-hover:text-primary">{i + 1}</span>
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-background ring-1 ring-foreground/8 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 group-hover:bg-primary/5 transition-all duration-300">
+                      <i className={`${card.icon} text-sm text-foreground/60 group-hover:text-primary transition-colors`} />
                     </div>
-                    <span className="text-xs text-muted-foreground group-hover:text-foreground leading-snug">
-                      {q}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <Badge variant={(["destructive", "default", "accent", "success"] as const)[i]} className="mb-1.5 pointer-events-none">
+                        {card.category}
+                      </Badge>
+                      <p className="text-xs text-foreground/60 group-hover:text-foreground leading-snug transition-colors">
+                        {card.question}
+                      </p>
+                    </div>
                   </div>
                 </button>
               ))}
@@ -686,7 +726,7 @@ export function PlaygroundPage() {
               }}
               placeholder={s.placeholder}
               aria-label={s.placeholder}
-              rows={3}
+              rows={isMobile ? 2 : 3}
               disabled={isStreaming}
               className="border-0 bg-transparent rounded-none focus:ring-0 text-sm px-4 pt-3 pb-2 placeholder:text-muted-foreground/60"
             />
@@ -720,14 +760,16 @@ export function PlaygroundPage() {
                   <option key={a.slug} value={a.slug}>{a.short_name}</option>
                 ))}
               </Select>
-              <span className="text-[11px] text-muted-foreground ml-1">⌘↵ to send</span>
-              {embeddingHint && (
-                <span className="text-[11px] text-muted-foreground/80 ml-1 flex items-center gap-1">
-                  <i className="ti ti-info-circle text-[10px]" />
-                  {embeddingHint}
-                </span>
-              )}
-              <div className={isMobile ? "self-end mt-1" : "ml-auto"}>
+              <div className={cn("flex items-center gap-2", isMobile ? "w-full justify-between" : "")}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground/50">⌘↵</span>
+                  {embeddingHint && (
+                    <span className="text-[11px] text-muted-foreground/60 hidden sm:inline-flex items-center gap-1">
+                      <i className="ti ti-info-circle text-[10px]" />
+                      {embeddingHint}
+                    </span>
+                  )}
+                </div>
                 <Button type="submit" disabled={isStreaming || !question.trim()} size="sm" className="transition-all duration-200 hover:shadow-md hover:shadow-primary/20">
                   {isStreaming ? (
                     <><i className="ti ti-loader-2 animate-spin text-sm" />{s.sending}</>
