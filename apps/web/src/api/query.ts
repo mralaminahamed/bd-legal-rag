@@ -37,6 +37,10 @@ export async function listThreads(limit = 50, offset = 0): Promise<ThreadListRes
   return data;
 }
 
+export async function deleteThread(threadId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/thread/${threadId}`);
+}
+
 export async function getActStructure(slug: string): Promise<ActStructure> {
   const { data } = await apiClient.get<ActStructure>(`/api/v1/acts/${slug}/structure`);
   return data;

@@ -54,6 +54,17 @@
     <meta name="twitter:image" content="/og-image.png" />
   </head>
   <body>
+    <script>
+      // Prevent FOUC: apply theme before first paint
+      (function() {
+        try {
+          var theme = localStorage.getItem('bd-legal-rag-theme');
+          if (theme) document.documentElement.classList.add('theme-' + theme);
+          else if (window.matchMedia('(prefers-color-scheme: dark)').matches)
+            document.documentElement.classList.add('theme-midnight');
+        } catch(e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

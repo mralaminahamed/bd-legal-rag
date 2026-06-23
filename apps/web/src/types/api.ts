@@ -181,3 +181,15 @@ export interface StreamEvent {
   degraded: boolean;
   declined: boolean;
 }
+
+export interface ProviderInfo {
+  configured: boolean;
+  model: string;
+}
+
+export interface ProviderConfigResponse {
+  default_provider: string;
+  embed_model: string;
+  embed_dimensions: number;
+  providers: Record<string, ProviderInfo>;
+}

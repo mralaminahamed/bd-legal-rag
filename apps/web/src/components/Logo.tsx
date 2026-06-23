@@ -20,8 +20,8 @@ export function Logo({ size = 28 }: { size?: number }) {
     >
       <defs>
         <linearGradient id={bgId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#1a3a6b" />
-          <stop offset="100%" stopColor="#0f1f42" />
+          <stop offset="0%" stopColor="var(--nav, #1a2744)" />
+          <stop offset="100%" stopColor="var(--nav, #1a2744)" stopOpacity="0.7" />
         </linearGradient>
       </defs>
 
@@ -37,8 +37,8 @@ export function Logo({ size = 28 }: { size?: number }) {
         <path d={petal} fill="rgba(255,255,255,0.88)" transform="rotate(288)" />
       </g>
 
-      {/* Center — indigo accent (the AI/knowledge node) */}
-      <circle cx="16" cy="16" r="3" fill="#6366f1" />
+      {/* Center — primary accent */}
+      <circle cx="16" cy="16" r="3" fill="var(--primary, #6366f1)" />
       <circle cx="16" cy="16" r="1.4" fill="white" fillOpacity="0.85" />
     </svg>
   );

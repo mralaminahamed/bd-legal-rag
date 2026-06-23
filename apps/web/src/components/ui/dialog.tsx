@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useId } from "react";
 import { cn } from "@/lib/utils";
 
 interface DialogProps {
@@ -11,6 +11,7 @@ interface DialogProps {
 
 export function Dialog({ open, onClose, title, children, className }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const el = ref.current;
@@ -38,6 +39,7 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       ref={ref}
       onClose={onClose}
       onClick={handleClick}
+      aria-labelledby={titleId}
       className={cn(
         // Tailwind preflight zeroes out `margin: auto` — restore it for centering
         "m-auto",
@@ -52,7 +54,7 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
       )}
     >
       <div className="flex items-start justify-between mb-4">
-        <h2 className="text-base font-semibold text-foreground leading-tight">{title}</h2>
+        <h2 id={titleId} className="text-base font-semibold text-foreground leading-tight">{title}</h2>
         <button
           onClick={onClose}
           aria-label="Close"
