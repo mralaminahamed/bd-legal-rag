@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState } from "react";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getActStructure, getSectionDetail } from "@/api/query";
@@ -77,6 +78,8 @@ export function ActReaderPage() {
   const navigate = useNavigate();
   const { uiLang } = useLang();
   const [tocOpen, setTocOpen] = useState(true);
+  const isMobile = useIsMobile();
+  const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
 
   const structureQ = useQuery({
     queryKey: ["act-structure", slug],
@@ -141,83 +144,149 @@ export function ActReaderPage() {
     : null;
 
   return (
-    <div className="flex min-h-[calc(100vh-56px)] -mx-6 -my-6">
+    <div className="flex min-h-[calc(100dvh-56px)] -mx-6 -my-6">
       {/* ── TOC panel ──────────────────────────────────────── */}
-      <aside
-        className={cn(
-          "shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200 overflow-hidden",
-          tocOpen ? "w-56" : "w-10",
-        )}
-      >
-        {/* TOC header */}
-        <div className={cn(
-          "flex items-center border-b border-border shrink-0 h-11",
-          tocOpen ? "px-3 gap-2" : "justify-center",
-        )}>
-          <button
-            onClick={() => setTocOpen((o) => !o)}
-            className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-            title={tocOpen ? "Collapse contents" : "Expand contents"}
+      {isMobile ? (
+        <>
+          {/* Mobile: TOC slide-in drawer */}
+          <aside
+            className={cn(
+              "fixed inset-y-0 left-0 z-40 w-[260px] max-w-[85vw] bg-card border-r border-border flex flex-col transition-transform duration-200 overflow-hidden",
+              tocDrawerOpen ? "translate-x-0" : "-translate-x-full",
+            )}
+            aria-modal={tocDrawerOpen ? "true" : undefined}
+            role={tocDrawerOpen ? "dialog" : undefined}
           >
-            <i className={`ti ${tocOpen ? "ti-layout-sidebar-left-collapse" : "ti-layout-sidebar-left-expand"} text-sm`} />
-          </button>
-          {tocOpen && (
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-              Contents
-            </span>
-          )}
-        </div>
-
-        {/* Act name strip */}
-        {tocOpen && act && (
-          <div className="px-3 py-2.5 border-b border-border/60 bg-muted/30 shrink-0">
-            <p className="text-[11px] font-semibold text-foreground/80 leading-snug line-clamp-2">
-              {act.short_name}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {act.act_number} · {act.act_year}
-            </p>
-          </div>
-        )}
-
-        {/* TOC tree */}
-        {tocOpen && (
-          <div className="flex-1 overflow-y-auto px-1 py-2 space-y-px">
-            {structureQ.isLoading
-              ? Array.from({ length: 12 }).map((_, i) => (
-                  <Skeleton key={i} className="h-5 w-full rounded mx-1" />
-                ))
-              : flat.map((node) => (
-                  <TocNode
-                    key={node.id}
-                    node={node}
-                    currentId={sectionId}
-                    onClick={(id) => navigate(`/acts/${slug}/read/${id}`)}
-                  />
-                ))}
-          </div>
-        )}
-
-        {/* Progress bar at bottom of TOC */}
-        {tocOpen && readable.length > 0 && currentIndex >= 0 && (
-          <div className="shrink-0 px-3 py-2.5 border-t border-border/60">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-300"
-                  style={{ width: `${((currentIndex + 1) / readable.length) * 100}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                {currentIndex + 1}/{readable.length}
-              </span>
+            {/* TOC header with close button */}
+            <div className="flex items-center px-3 gap-2 border-b border-border shrink-0 h-11">
+              <button onClick={() => setTocDrawerOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <i className="ti ti-x text-sm" />
+              </button>
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Contents</span>
             </div>
+            {/* Act name strip */}
+            {act && (
+              <div className="px-3 py-2.5 border-b border-border/60 bg-muted/30 shrink-0">
+                <p className="text-[11px] font-semibold text-foreground/80 leading-snug line-clamp-2">{act.short_name}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{act.act_number} · {act.act_year}</p>
+              </div>
+            )}
+            {/* TOC tree */}
+            <div className="flex-1 overflow-y-auto px-1 py-2 space-y-px">
+              {structureQ.isLoading
+                ? Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-5 w-full rounded mx-1" />)
+                : structureQ.isError ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center px-3">
+                    <i className="ti ti-alert-circle text-xl text-destructive mb-2" />
+                    <p className="text-xs text-muted-foreground">Failed to load structure</p>
+                  </div>
+                ) : flat.map((node) => (
+                    <TocNode key={node.id} node={node} currentId={sectionId} onClick={(id) => {
+                      navigate(`/acts/${slug}/read/${id}`);
+                      setTocDrawerOpen(false);
+                    }} />
+                  ))}
+            </div>
+            {/* Progress bar */}
+            {readable.length > 0 && currentIndex >= 0 && (
+              <div className="shrink-0 px-3 py-2.5 border-t border-border/60">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${((currentIndex + 1) / readable.length) * 100}%` }} />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{currentIndex + 1}/{readable.length}</span>
+                </div>
+              </div>
+            )}
+          </aside>
+          {/* Backdrop */}
+          {tocDrawerOpen && (
+            <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setTocDrawerOpen(false)} aria-hidden="true" />
+          )}
+        </>
+      ) : (
+        /* Desktop TOC sidebar — unchanged */
+        <aside
+          className={cn(
+            "shrink-0 border-r border-border bg-card flex flex-col transition-[width] duration-200 overflow-hidden",
+            tocOpen ? "w-56" : "w-10",
+          )}
+        >
+          {/* TOC header */}
+          <div className={cn(
+            "flex items-center border-b border-border shrink-0 h-11",
+            tocOpen ? "px-3 gap-2" : "justify-center",
+          )}>
+            <button
+              onClick={() => setTocOpen((o) => !o)}
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              aria-label={tocOpen ? "Collapse table of contents" : "Expand table of contents"}
+            >
+              <i className={`ti ${tocOpen ? "ti-layout-sidebar-left-collapse" : "ti-layout-sidebar-left-expand"} text-sm`} />
+            </button>
+            {tocOpen && (
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                Contents
+              </span>
+            )}
           </div>
-        )}
-      </aside>
+
+          {/* Act name strip */}
+          {tocOpen && act && (
+            <div className="px-3 py-2.5 border-b border-border/60 bg-muted/30 shrink-0">
+              <p className="text-[11px] font-semibold text-foreground/80 leading-snug line-clamp-2">
+                {act.short_name}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {act.act_number} · {act.act_year}
+              </p>
+            </div>
+          )}
+
+          {/* TOC tree */}
+          {tocOpen && (
+            <div className="flex-1 overflow-y-auto px-1 py-2 space-y-px">
+              {structureQ.isLoading
+                ? Array.from({ length: 12 }).map((_, i) => (
+                    <Skeleton key={i} className="h-5 w-full rounded mx-1" />
+                  ))
+                : structureQ.isError ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center px-3">
+                    <i className="ti ti-alert-circle text-xl text-destructive mb-2" />
+                    <p className="text-xs text-muted-foreground">Failed to load structure</p>
+                  </div>
+                ) : flat.map((node) => (
+                    <TocNode
+                      key={node.id}
+                      node={node}
+                      currentId={sectionId}
+                      onClick={(id) => navigate(`/acts/${slug}/read/${id}`)}
+                    />
+                  ))}
+            </div>
+          )}
+
+          {/* Progress bar at bottom of TOC */}
+          {tocOpen && readable.length > 0 && currentIndex >= 0 && (
+            <div className="shrink-0 px-3 py-2.5 border-t border-border/60">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all duration-300"
+                    style={{ width: `${((currentIndex + 1) / readable.length) * 100}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                  {currentIndex + 1}/{readable.length}
+                </span>
+              </div>
+            </div>
+          )}
+        </aside>
+      )}
 
       {/* ── Content area ───────────────────────────────────── */}
-      <div className="flex-1 min-w-0 flex flex-col overflow-y-auto max-h-[calc(100vh-56px)]">
+      <div className="flex-1 min-w-0 flex flex-col max-lg:overflow-visible overflow-y-auto max-h-[calc(100dvh-56px)]">
         {/* Top bar */}
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border px-6 h-11 flex items-center gap-3 shrink-0">
           <Link
@@ -227,6 +296,15 @@ export function ActReaderPage() {
           >
             <i className="ti ti-arrow-left text-sm" />
           </Link>
+          {isMobile && (
+            <button
+              onClick={() => setTocDrawerOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+            >
+              <i className="ti ti-list text-xs" />
+              Contents
+            </button>
+          )}
           <div className="flex-1 min-w-0">
             {act ? (
               <div className="flex items-center gap-2 min-w-0">
@@ -253,16 +331,24 @@ export function ActReaderPage() {
         </div>
 
         {/* Section content */}
-        <div className="flex-1 px-10 py-10 max-w-2xl w-full">
+        <div className="flex-1 px-4 lg:px-10 py-6 lg:py-10 max-w-2xl w-full">
           {sectionQ.isLoading || !section ? (
-            <div className="space-y-4">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-            </div>
+            sectionQ.isError ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <i className="ti ti-alert-circle text-3xl text-destructive mb-3" />
+                <p className="text-sm font-semibold text-foreground mb-1">Failed to load section</p>
+                <p className="text-xs text-muted-foreground">Try navigating to a different section.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+              </div>
+            )
           ) : (
             <>
               {/* Breadcrumb */}
@@ -350,6 +436,7 @@ export function ActReaderPage() {
           <button
             onClick={() => prev && slug && navigate(`/acts/${slug}/read/${prev.id}`)}
             disabled={!prev}
+            aria-label={prev ? `Go to previous section ${prev.number}` : "Beginning of document"}
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors",
               prev
@@ -358,15 +445,16 @@ export function ActReaderPage() {
             )}
           >
             <i className="ti ti-arrow-left text-xs" />
-            <span className="hidden sm:inline max-w-[180px] truncate">
+            <span className="hidden lg:inline max-w-[180px] truncate">
               {prev ? `§${prev.number}${prev.title ? ` — ${prev.title}` : ""}` : "Beginning"}
             </span>
-            {!prev && <span className="sm:hidden text-[12px]">Beginning</span>}
+            {!prev && <span className="lg:hidden text-[12px]">Beginning</span>}
           </button>
 
           <button
             onClick={() => next && slug && navigate(`/acts/${slug}/read/${next.id}`)}
             disabled={!next}
+            aria-label={next ? `Go to next section ${next.number}` : "End of document"}
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors",
               next
@@ -374,10 +462,10 @@ export function ActReaderPage() {
                 : "text-muted-foreground/30 cursor-not-allowed",
             )}
           >
-            <span className="hidden sm:inline max-w-[180px] truncate">
+            <span className="hidden lg:inline max-w-[180px] truncate">
               {next ? `§${next.number}${next.title ? ` — ${next.title}` : ""}` : "End"}
             </span>
-            {!next && <span className="sm:hidden text-[12px]">End</span>}
+            {!next && <span className="lg:hidden text-[12px]">End</span>}
             <i className="ti ti-arrow-right text-xs" />
           </button>
         </div>
