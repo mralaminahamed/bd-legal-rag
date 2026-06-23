@@ -24,7 +24,7 @@ export function StatCard({
   }[tone];
 
   return (
-    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+    <div className="rounded-xl bg-card p-4 max-lg:p-3 ring-1 ring-foreground/10">
       <div className="flex items-start justify-between mb-2">
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
           {label}

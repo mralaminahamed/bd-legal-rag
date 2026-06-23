@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getHealth } from "@/api/admin";
 import { cn } from "@/lib/utils";
 
-export function ConnectionBadge({ collapsed }: { collapsed?: boolean }) {
+export function ConnectionBadge({ collapsed, compact }: { collapsed?: boolean; compact?: boolean }) {
   const { data, isError } = useQuery({
     queryKey: ["health"],
     queryFn: getHealth,
@@ -11,6 +11,15 @@ export function ConnectionBadge({ collapsed }: { collapsed?: boolean }) {
   });
 
   const ok = !isError && data?.status === "ok";
+
+  if (compact) {
+    return (
+      <span
+        title={ok ? "API online" : "API offline"}
+        className={cn("w-2 h-2 rounded-full shrink-0", ok ? "bg-success" : "bg-destructive")}
+      />
+    );
+  }
 
   if (collapsed) {
     return (
