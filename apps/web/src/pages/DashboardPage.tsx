@@ -4,50 +4,11 @@ import { getMetrics, getRecentQueries, getHealth } from "@/api/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/ui/stat-card";
+import { PageHeader } from "@/components/ui/page-header";
 import { formatPercent, formatMs, formatDateTime, truncate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-// ── KPI card ──────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  hint,
-  tone = "default",
-}: {
-  icon: string;
-  label: string;
-  value: React.ReactNode;
-  hint?: string;
-  tone?: "default" | "success" | "warning" | "destructive";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "text-success"
-      : tone === "warning"
-        ? "text-warning"
-        : tone === "destructive"
-          ? "text-destructive"
-          : "text-primary";
-
-  return (
-    <div className="rounded-xl ring-1 ring-foreground/8 bg-card p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-          {label}
-        </span>
-        <i className={`ti ${icon} text-sm ${toneClass} opacity-60`} />
-      </div>
-      <div className={cn("text-xl font-bold tabular-nums", toneClass === "text-primary" ? "text-foreground" : toneClass)}>
-        {value}
-      </div>
-      {hint && (
-        <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>
-      )}
-    </div>
-  );
-}
+import { useIsMobile } from "@/lib/useIsMobile";
 
 // ── Health dot ────────────────────────────────────────────────────────────────
 
@@ -92,6 +53,8 @@ export function DashboardPage() {
 
   const m = metricsQ.data;
   const h = healthQ.data;
+  const isMobile = useIsMobile();
+  void isMobile;
 
   function refetchAll() {
     void metricsQ.refetch();
@@ -102,16 +65,16 @@ export function DashboardPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Overview</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Service health and query metrics</p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={refetchAll}>
-          <i className="ti ti-refresh text-sm" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Overview"
+        description="Service health and query metrics"
+        actions={
+          <Button variant="ghost" size="sm" onClick={refetchAll}>
+            <i className="ti ti-refresh text-sm" />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* KPI grid — 8 cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -119,40 +82,40 @@ export function DashboardPage() {
           Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-[84px] rounded-xl" />)
         ) : (
           <>
-            <KpiCard icon="ti-messages" label="Queries (24h)" value={m.total_queries} />
-            <KpiCard
+            <StatCard icon="ti-messages" label="Queries (24h)" value={m.total_queries} />
+            <StatCard
               icon="ti-ban"
               label="Decline rate"
               value={formatPercent(m.decline_rate)}
               hint="low recall floor"
               tone={m.decline_rate > 0.3 ? "warning" : "default"}
             />
-            <KpiCard
+            <StatCard
               icon="ti-bolt"
               label="Cache hit"
               value={formatPercent(m.cache_hit_rate)}
               tone="success"
             />
-            <KpiCard icon="ti-clock" label="p95 latency" value={formatMs(m.p95_latency_ms)} />
-            <KpiCard
+            <StatCard icon="ti-clock" label="p95 latency" value={formatMs(m.p95_latency_ms)} />
+            <StatCard
               icon="ti-alert-triangle"
               label="Degraded"
               value={formatPercent(m.degraded_rate)}
               tone={m.degraded_rate > 0 ? "warning" : "success"}
             />
-            <KpiCard
+            <StatCard
               icon="ti-shield-check"
               label="HIGH conf."
               value={m.confidence_breakdown.HIGH}
               tone="success"
             />
-            <KpiCard
+            <StatCard
               icon="ti-coin"
               label="Daily spend"
               value={`$${m.daily_spend_usd.toFixed(4)}`}
               hint="estimated USD"
             />
-            <KpiCard icon="ti-thumb-up" label="Feedback" value={m.feedback_count} />
+            <StatCard icon="ti-thumb-up" label="Feedback" value={m.feedback_count} />
           </>
         )}
       </div>
@@ -160,7 +123,7 @@ export function DashboardPage() {
       {/* Service health + Quick actions */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Service health */}
-        <div className="lg:col-span-2 rounded-xl ring-1 ring-foreground/8 bg-card px-5 py-4">
+        <div className="lg:col-span-2 rounded-xl ring-1 ring-foreground/10 bg-card px-5 py-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
               <i className="ti ti-activity text-sm text-primary" />
@@ -189,7 +152,7 @@ export function DashboardPage() {
         </div>
 
         {/* Quick actions */}
-        <div className="rounded-xl ring-1 ring-foreground/8 bg-card px-5 py-4">
+        <div className="rounded-xl ring-1 ring-foreground/10 bg-card px-5 py-4">
           <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2 mb-3">
             <i className="ti ti-player-play text-sm text-primary" />
             Quick actions
@@ -215,7 +178,7 @@ export function DashboardPage() {
       </div>
 
       {/* Recent queries */}
-      <div className="rounded-xl ring-1 ring-foreground/8 bg-card overflow-hidden">
+      <div className="rounded-xl ring-1 ring-foreground/10 bg-card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-[13px] font-semibold text-foreground flex items-center gap-2">
             <i className="ti ti-history text-sm text-primary" />
@@ -236,7 +199,7 @@ export function DashboardPage() {
             ))}
           </div>
         ) : (queriesQ.data?.queries.length ?? 0) === 0 ? (
-          <div className="flex flex-col items-center py-12 text-center text-muted-foreground">
+          <div className="flex flex-col items-center py-8 lg:py-12 text-center text-muted-foreground">
             <i className="ti ti-messages-off text-2xl mb-2" />
             <p className="text-sm">No queries yet — try one in the Playground</p>
           </div>
@@ -259,11 +222,11 @@ export function DashboardPage() {
                   <span className="min-w-0 flex-1 truncate text-sm text-foreground">
                     {truncate(q.query_text, 65)}
                   </span>
-                  <span className="text-[11px] uppercase font-mono text-muted-foreground shrink-0">
+                  <span className="text-[11px] uppercase font-mono text-muted-foreground shrink-0 max-lg:hidden">
                     {q.detected_language ?? "—"}
                   </span>
-                  <ConfidenceBadge tier={q.confidence_tier} />
-                  <div className="flex gap-1 shrink-0">
+                  <span className="max-lg:hidden"><ConfidenceBadge tier={q.confidence_tier} /></span>
+                  <div className="flex gap-1 shrink-0 max-lg:hidden">
                     {q.declined && <Badge variant="destructive">declined</Badge>}
                     {q.cached && <Badge variant="accent">cached</Badge>}
                     {q.degraded && <Badge variant="warning">degraded</Badge>}
@@ -271,13 +234,13 @@ export function DashboardPage() {
                   <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
                     {formatMs(q.latency_ms)}
                   </span>
-                  <span className="w-28 text-right text-xs text-muted-foreground shrink-0 tabular-nums">
+                  <span className="w-28 text-right text-xs text-muted-foreground shrink-0 tabular-nums max-lg:hidden">
                     {formatDateTime(q.created_at)}
                   </span>
                   <Link
                     to={replayUrl}
                     title="Open in Playground"
-                    className="shrink-0 text-muted-foreground/30 hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                    className="shrink-0 text-muted-foreground/30 hover:text-primary transition-colors max-lg:opacity-60 max-lg:hover:opacity-100 opacity-0 group-hover:opacity-100"
                   >
                     <i className="ti ti-player-play text-sm" />
                   </Link>
