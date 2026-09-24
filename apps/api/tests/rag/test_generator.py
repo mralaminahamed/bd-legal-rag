@@ -37,6 +37,7 @@ def _chunk(
         language="en",
         score=score,
         rerank_score=score,
+        source_url="https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
     )
 
 
@@ -114,7 +115,17 @@ def _mock_act_query(mock_session: Any) -> Any:
 
 @pytest.fixture
 def mock_db_session() -> MagicMock:
-    return MagicMock()
+    """A session whose execute is awaitable and finds no Act rows.
+
+    generate() awaits session.execute to resolve act names for citations, so a bare
+    MagicMock fails with "object MagicMock can't be awaited" before the decline or
+    circuit-breaker path the test is about is reached.
+    """
+    session = MagicMock()
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = []
+    session.execute = AsyncMock(return_value=result)
+    return session
 
 
 # ─── Type shape tests ──────────────────────────────────────────────────────────

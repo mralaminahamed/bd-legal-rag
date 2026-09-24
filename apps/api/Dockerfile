@@ -99,6 +99,13 @@ RUN groupadd --system --gid 1000 bdrag \
 # Copy the prebuilt venv from deps stage — no compilers in final image.
 COPY --from=deps --chown=bdrag:bdrag /app/.venv /app/.venv
 
+# Where the ingest worker saves the bdlaws HTML it crawls (html_snapshot_dir,
+# "data/raw" relative to /app). WORKDIR creates /app as root, so without this the
+# worker cannot mkdir "data" and every ingest task ends `status: failed` while
+# Celery reports the task itself as succeeded. Created here, owned by bdrag, so a
+# named volume mounted over it inherits that ownership on first use.
+RUN mkdir -p /app/data/raw && chown -R bdrag:bdrag /app/data
+
 # Copy application source last (most-frequently-changed layer).
 COPY --chown=bdrag:bdrag apps/api/app ./app
 COPY --chown=bdrag:bdrag apps/api/eval ./eval

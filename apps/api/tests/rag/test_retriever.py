@@ -27,6 +27,7 @@ def _hit(cid: uuid.UUID, score: float, lang: str = "en") -> Any:
         content="some content",
         language=lang,
         score=score,
+        source_url="https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
     )
 
 
@@ -125,6 +126,7 @@ async def test_vector_search_returns_hits_from_rows() -> None:
         "hierarchy_path": "Act > Section 1",
         "content": "content",
         "language": "en",
+        "source_url": "https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
         "score": 0.85,
     }[k]
 
@@ -170,6 +172,7 @@ async def test_lexical_search_returns_hits_from_rows() -> None:
         "hierarchy_path": "Act > Section 103",
         "content": "weekly holiday content",
         "language": "en",
+        "source_url": "https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
         "score": 0.42,
     }[k]
 

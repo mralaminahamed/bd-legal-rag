@@ -1,0 +1,77 @@
+# Bangladesh Legal RAG served through a Cloudflare Tunnel.
+# Author: Al Amin Ahamed.
+#
+# An overlay on docker-compose.prod.yml, which is the stack: this changes how it
+# is reached, not what it is. Nothing is published except one loopback port; the
+# tunnel connector is the only thing that faces the internet.
+#
+#   docker compose --env-file .env.tunnel \
+#     -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+#
+# --env-file is required, and replaces the .env beside this file. That .env is the
+# development one (admin token "dev-admin-token", Postgres password "bdrag"), and
+# compose would otherwise read it for the interpolation in docker-compose.prod.yml.
+# .env.tunnel is git-ignored (.env.*); see .env.tunnel.example for what it holds.
+#
+# No `name:` in this file, ever. The project name comes from the base file.
+
+services:
+  # Schema first. The prod stack has no migration step of its own, and an app that
+  # starts against an empty database answers 500 on the first query.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    environment:
+      BDRAG_ENVIRONMENT: production
+      BDRAG_DATABASE_DSN: postgresql+asyncpg://bdrag:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/bdrag
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # uvicorn believes X-Forwarded-For only from an address it is told to trust, and
+  # defaults to 127.0.0.1. Behind Caddy the peer is a private compose address, so
+  # without this every visitor is Caddy. `*` would be wrong the other way: it takes
+  # the leftmost entry, which the visitor writes. The private ranges make it take
+  # the rightmost address that is not ours, which Cloudflare appends.
+  app:
+    command: !override
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --workers
+      - "2"
+      - --proxy-headers
+      - --forwarded-allow-ips
+      - 127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Raw bdlaws HTML the worker saves, so a re-ingest reads it back instead of
+  # crawling the source again. Only the worker writes it.
+  worker:
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - snapshots:/app/data/raw
+
+  caddy:
+    environment:
+      BDRAG_ADMIN_BEARER_TOKEN: ${BDRAG_ADMIN_BEARER_TOKEN:?set BDRAG_ADMIN_BEARER_TOKEN}
+    ports: !override
+      - "127.0.0.1:${BDRAG_PORT:-8101}:80"
+    volumes: !override
+      - ./caddy/Caddyfile.tunnel:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+
+volumes:
+  snapshots:

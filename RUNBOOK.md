@@ -222,3 +222,69 @@ placeholders and investigate the specific `query_id` for how the chunk slipped t
 | cost breaker refuses a call | projected cost over ceiling | raise `BDRAG_COST_CEILING_USD_PER_REQUEST` |
 | Retrieval misses Bengali text | `input_type` mixup at embed time | verify `EmbedInputType.SEARCH_DOCUMENT` used at ingest |
 | Disclaimer missing from response | new code path bypasses injector | check generator pipeline; disclaimer must run on every path |
+
+## Serving through a Cloudflare Tunnel
+
+`docker-compose.prod.yml` is the stack. `docker-compose.tunnel.yml` changes how it is reached:
+nothing is published except Caddy on `127.0.0.1:8101`, so the tunnel connector is the only thing
+facing the internet. The project is `bd-legal-rag-prod`, separate from the dev stack's
+`bd-legal-rag`, so the two never share a Postgres volume (a volume keeps the password it was
+created with).
+
+```bash
+cp .env.tunnel.example .env.tunnel          # then fill in the two secrets: openssl rand -hex 32
+docker compose --env-file .env.tunnel -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+docker exec bd-legal-rag-prod-app-1 python -m app.ingestion.registry bootstrap
+```
+
+`--env-file` is required. Without it compose reads the development `.env`, whose admin token is
+`dev-admin-token`.
+
+What the overlay does, and why each piece is there:
+
+| Piece | Reason |
+|---|---|
+| `migrate` service | The prod stack had no migration step; an empty database answers 500 on the first query. |
+| `--proxy-headers --forwarded-allow-ips <private ranges>` | The rate limit keys on the caller's address. Behind Caddy that is Caddy, so 6 visitors sent 24 requests and shared one bucket of 20 (measured). With the ranges trusted, each visitor has their own and a forged leftmost `X-Forwarded-For` entry does not help. `*` is wrong the other way: it trusts the leftmost entry, which the visitor writes. |
+| `Caddyfile.tunnel` `trusted_proxies` | Same reason, one hop earlier. Caddy replaces `X-Forwarded-For` with the peer address unless it trusts the peer. |
+| `@private_threads` | `GET /api/v1/threads` and `/api/v1/thread/{id}` need no authentication and return every visitor's questions and answers. On a public origin they need the admin token. A stopgap: the endpoints should require it themselves. |
+| `snapshots` volume, `/app/data` owned by `bdrag` | The worker saves the bdlaws HTML it crawls. The directory was root's, so every ingest task ended `status: failed` while Celery reported the task as succeeded. |
+
+The console sends the admin token once it is entered under Settings. Read it with
+`grep BDRAG_ADMIN_BEARER_TOKEN .env.tunnel`.
+
+### Before this is public
+
+Measured on 24 September 2026. The deployment does not fix any of these.
+
+1. **The corpus has no statute text, and nothing can put it there yet.** The main page of each
+   Act on bdlaws is a table of contents, so the chunks read "1. Short title, extent and
+   commencement" under hierarchy paths like `Part ?`. The text is on the per-section pages, which
+   `python -m app.ingestion.snapshot --sections` saves under `data/raw/{slug}/sections/{lang}/`,
+   4,018 pages across the 16 Acts. But `ingestion/tasks.py` reads only `{lang}.html`, and no code
+   reads the section snapshots: there is no parser for a section page and no task that attaches
+   its text to the tree. Crawling more changes nothing until that exists.
+2. **Each Act is published in one language, not two.** `?lang=en` returns the same page as no
+   parameter, and `?lang=bn` only translates the site's own navigation. For the five newer Acts
+   (Companies 1994, Digital Security 2018, Income Tax 2023, Labour 2006, VAT and SD 2012) the text
+   is Bengali. For the eleven older ones it is English. `config/acts/*.yaml` listed both languages
+   for all 16, so every Act was stored twice under two labels, one of them false. Each now lists
+   only the language it is published in. The English text of the five Bengali Acts is not on the
+   portal. `translation_status` is still derived from the language label alone
+   (`tasks.py`: `bn` is authoritative, `en` is a reference translation), which calls the
+   original English enactments reference translations.
+3. **An advice-seeking question is answered, not declined.** Commit `33e0117` routes
+   "should I", "can I", "my rights" and their Bengali forms to a `legal_advice` prompt and skips
+   the decline gate for them (`generator.py`, `_bypass_decline`). The project rules say the
+   opposite (CLAUDE.md rule 3, NFR-LS-3), and four tests written for that rule fail:
+   `test_advice_seeking_en_declines_NFR_LS_3`, `..._bn_...`,
+   `test_disclaimer_present_on_decline_response_NFR_LS_1` and
+   `test_circuit_breaker_refuses_oversized_request`. That one also reaches a live provider, so
+   it passes or fails on what your `.env` says. This is a policy decision and has not been
+   touched.
+4. **The admin ingest endpoints and the beat schedule dispatch both languages for every Act**,
+   so an Act with one source reports a `failed` run for the language it does not have.
+5. **Crawl politely.** The crawler sleeps `1 / BDRAG_BDLAWS_RATE_LIMIT_RPS` before each request
+   but runs three at once, so the default 1.0 is about 2 to 3 requests a second in total. With
+   `BDRAG_BDLAWS_RATE_LIMIT_RPS=0.34` it measured 60 pages in 82 seconds. `robots.txt` on the
+   portal is a 404, so nothing there restricts it.

@@ -13,5 +13,3 @@ status: in_force
 sources:
   - language: bn
     source_url: http://bdlaws.minlaw.gov.bd/act-952.html
-  - language: en
-    source_url: http://bdlaws.minlaw.gov.bd/act-952.html?lang=en

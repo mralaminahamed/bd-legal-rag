@@ -25,6 +25,7 @@ def _chunk(
         language="en",
         score=score,
         rerank_score=None,
+        source_url="https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
     )
 
 

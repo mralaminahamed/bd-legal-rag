@@ -10,7 +10,5 @@ ministry: Ministry of Commerce
 status: in_force
 
 sources:
-  - language: bn
-    source_url: http://bdlaws.minlaw.gov.bd/act-157.html
   - language: en
     source_url: http://bdlaws.minlaw.gov.bd/act-157.html?lang=en

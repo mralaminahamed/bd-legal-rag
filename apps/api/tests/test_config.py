@@ -11,7 +11,8 @@ def test_default_settings_are_valid() -> None:
     settings = Settings()
     assert settings.app_name == "bd-legal-rag"
     assert settings.embed_model == "embed-multilingual-v3.0"
-    assert settings.embed_dimensions == 1024
+    # halfvec(2560), qwen3-embedding:4b: migration f7bdf0070aad widened it from 1024.
+    assert settings.embed_dimensions == 2560
     assert settings.rerank_model == "rerank-multilingual-v3.0"
     assert settings.active_disclaimer_version == "v1"
     assert settings.active_decline_version == "v1"
