@@ -253,16 +253,38 @@ What the overlay does, and why each piece is there:
 The console sends the admin token once it is entered under Settings. Read it with
 `grep BDRAG_ADMIN_BEARER_TOKEN .env.tunnel`.
 
-### Before the corpus is public
+### Before this is public
 
-Measured on 24 September 2026, and not fixed by the deployment:
+Measured on 24 September 2026. The deployment does not fix any of these.
 
-- The snapshots in `apps/api/data/raw` are main pages only, so the chunks are tables of contents
-  ("1. Short title, extent and commencement") with hierarchy paths like `Part ?`. The statute text
-  is on the per-section pages: `python -m app.ingestion.snapshot --sections`, 4,018 pages per
-  language, about 2.2 hours for both at the crawler's 1 request a second.
-- `bn.html` and `en.html` are byte-identical for all 16 Acts. `?lang=en` returns the same page as
-  no parameter, so the English source is never fetched. For the five newer Acts (Companies 1994,
-  Digital Security 2018, Income Tax 2023, Labour 2006, VAT and SD 2012) that page is Bengali, and
-  both languages hold the same Bengali text. For the eleven older Acts it is English with about
-  1,140 Bengali characters of site chrome.
+1. **The corpus has no statute text, and nothing can put it there yet.** The main page of each
+   Act on bdlaws is a table of contents, so the chunks read "1. Short title, extent and
+   commencement" under hierarchy paths like `Part ?`. The text is on the per-section pages, which
+   `python -m app.ingestion.snapshot --sections` saves under `data/raw/{slug}/sections/{lang}/`,
+   4,018 pages across the 16 Acts. But `ingestion/tasks.py` reads only `{lang}.html`, and no code
+   reads the section snapshots: there is no parser for a section page and no task that attaches
+   its text to the tree. Crawling more changes nothing until that exists.
+2. **Each Act is published in one language, not two.** `?lang=en` returns the same page as no
+   parameter, and `?lang=bn` only translates the site's own navigation. For the five newer Acts
+   (Companies 1994, Digital Security 2018, Income Tax 2023, Labour 2006, VAT and SD 2012) the text
+   is Bengali. For the eleven older ones it is English. `config/acts/*.yaml` listed both languages
+   for all 16, so every Act was stored twice under two labels, one of them false. Each now lists
+   only the language it is published in. The English text of the five Bengali Acts is not on the
+   portal. `translation_status` is still derived from the language label alone
+   (`tasks.py`: `bn` is authoritative, `en` is a reference translation), which calls the
+   original English enactments reference translations.
+3. **An advice-seeking question is answered, not declined.** Commit `33e0117` routes
+   "should I", "can I", "my rights" and their Bengali forms to a `legal_advice` prompt and skips
+   the decline gate for them (`generator.py`, `_bypass_decline`). The project rules say the
+   opposite (CLAUDE.md rule 3, NFR-LS-3), and four tests written for that rule fail:
+   `test_advice_seeking_en_declines_NFR_LS_3`, `..._bn_...`,
+   `test_disclaimer_present_on_decline_response_NFR_LS_1` and
+   `test_circuit_breaker_refuses_oversized_request`. That one also reaches a live provider, so
+   it passes or fails on what your `.env` says. This is a policy decision and has not been
+   touched.
+4. **The admin ingest endpoints and the beat schedule dispatch both languages for every Act**,
+   so an Act with one source reports a `failed` run for the language it does not have.
+5. **Crawl politely.** The crawler sleeps `1 / BDRAG_BDLAWS_RATE_LIMIT_RPS` before each request
+   but runs three at once, so the default 1.0 is about 2 to 3 requests a second in total. With
+   `BDRAG_BDLAWS_RATE_LIMIT_RPS=0.34` it measured 60 pages in 82 seconds. `robots.txt` on the
+   portal is a 404, so nothing there restricts it.
