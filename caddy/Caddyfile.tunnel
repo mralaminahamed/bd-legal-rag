@@ -1,0 +1,52 @@
+# BD Legal RAG behind a Cloudflare Tunnel. Author: Al Amin Ahamed.
+#
+# Cloudflare ends TLS, so this listens on plain HTTP inside the compose network
+# and is published on loopback only (docker-compose.tunnel.yml). Same routing as
+# Caddyfile: /api/* and /health go to FastAPI, everything else to the SPA.
+#
+# trusted_proxies is what keeps the visitor's address. cloudflared reaches this
+# container from a private address and says who the visitor is in
+# X-Forwarded-For. Caddy replaces that header with the peer address unless it
+# trusts the peer, and the API keys its rate limit on the address it is given, so
+# every visitor would share one bucket of 20 requests a minute.
+{
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# GET /api/v1/threads lists every visitor's conversations and
+	# GET /api/v1/thread/{id} returns one in full, questions and answers, with no
+	# authentication at all: the API was written for a single operator. On a public
+	# origin that is anyone's legal questions readable by anyone, so they need the
+	# admin token here, which the console sends once it is entered under Settings.
+	# A stopgap for this deployment. The endpoints should require it themselves.
+	@private_threads {
+		path /api/v1/threads /api/v1/thread/*
+		not header Authorization "Bearer {$BDRAG_ADMIN_BEARER_TOKEN}"
+	}
+	handle @private_threads {
+		header WWW-Authenticate Bearer
+		respond "admin token required" 401
+	}
+
+	@api path /api/* /health
+	handle @api {
+		reverse_proxy app:8000
+	}
+
+	handle {
+		reverse_proxy web:80
+	}
+}

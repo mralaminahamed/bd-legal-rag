@@ -222,3 +222,47 @@ placeholders and investigate the specific `query_id` for how the chunk slipped t
 | cost breaker refuses a call | projected cost over ceiling | raise `BDRAG_COST_CEILING_USD_PER_REQUEST` |
 | Retrieval misses Bengali text | `input_type` mixup at embed time | verify `EmbedInputType.SEARCH_DOCUMENT` used at ingest |
 | Disclaimer missing from response | new code path bypasses injector | check generator pipeline; disclaimer must run on every path |
+
+## Serving through a Cloudflare Tunnel
+
+`docker-compose.prod.yml` is the stack. `docker-compose.tunnel.yml` changes how it is reached:
+nothing is published except Caddy on `127.0.0.1:8101`, so the tunnel connector is the only thing
+facing the internet. The project is `bd-legal-rag-prod`, separate from the dev stack's
+`bd-legal-rag`, so the two never share a Postgres volume (a volume keeps the password it was
+created with).
+
+```bash
+cp .env.tunnel.example .env.tunnel          # then fill in the two secrets: openssl rand -hex 32
+docker compose --env-file .env.tunnel -f docker-compose.prod.yml -f docker-compose.tunnel.yml up -d --build
+docker exec bd-legal-rag-prod-app-1 python -m app.ingestion.registry bootstrap
+```
+
+`--env-file` is required. Without it compose reads the development `.env`, whose admin token is
+`dev-admin-token`.
+
+What the overlay does, and why each piece is there:
+
+| Piece | Reason |
+|---|---|
+| `migrate` service | The prod stack had no migration step; an empty database answers 500 on the first query. |
+| `--proxy-headers --forwarded-allow-ips <private ranges>` | The rate limit keys on the caller's address. Behind Caddy that is Caddy, so 6 visitors sent 24 requests and shared one bucket of 20 (measured). With the ranges trusted, each visitor has their own and a forged leftmost `X-Forwarded-For` entry does not help. `*` is wrong the other way: it trusts the leftmost entry, which the visitor writes. |
+| `Caddyfile.tunnel` `trusted_proxies` | Same reason, one hop earlier. Caddy replaces `X-Forwarded-For` with the peer address unless it trusts the peer. |
+| `@private_threads` | `GET /api/v1/threads` and `/api/v1/thread/{id}` need no authentication and return every visitor's questions and answers. On a public origin they need the admin token. A stopgap: the endpoints should require it themselves. |
+| `snapshots` volume, `/app/data` owned by `bdrag` | The worker saves the bdlaws HTML it crawls. The directory was root's, so every ingest task ended `status: failed` while Celery reported the task as succeeded. |
+
+The console sends the admin token once it is entered under Settings. Read it with
+`grep BDRAG_ADMIN_BEARER_TOKEN .env.tunnel`.
+
+### Before the corpus is public
+
+Measured on 24 September 2026, and not fixed by the deployment:
+
+- The snapshots in `apps/api/data/raw` are main pages only, so the chunks are tables of contents
+  ("1. Short title, extent and commencement") with hierarchy paths like `Part ?`. The statute text
+  is on the per-section pages: `python -m app.ingestion.snapshot --sections`, 4,018 pages per
+  language, about 2.2 hours for both at the crawler's 1 request a second.
+- `bn.html` and `en.html` are byte-identical for all 16 Acts. `?lang=en` returns the same page as
+  no parameter, so the English source is never fetched. For the five newer Acts (Companies 1994,
+  Digital Security 2018, Income Tax 2023, Labour 2006, VAT and SD 2012) that page is Bengali, and
+  both languages hold the same Bengali text. For the eleven older Acts it is English with about
+  1,140 Bengali characters of site chrome.

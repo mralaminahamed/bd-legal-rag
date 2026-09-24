@@ -13,6 +13,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.tunnel.example
 
 # Tooling caches
 .mypy_cache/

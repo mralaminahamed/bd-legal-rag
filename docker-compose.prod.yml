@@ -15,6 +15,14 @@
 # Persist DOMAIN, POSTGRES_PASSWORD, BDRAG_ADMIN_BEARER_TOKEN in a .env file
 # (NOT committed) and source it before every deploy.
 
+# Pinned, and different from the dev stack's `bd-legal-rag`, so the two never
+# share a volume. Both files declare a `pgdata`, and a Postgres volume keeps the
+# password it was first created with: without this the tunnel stack would inherit
+# the dev volume and refuse its own password. Never add `name:` to an overlay
+# (`docker-compose.tunnel.yml`): `-f base -f overlay` takes the last one and would
+# rename the project out from under its volumes.
+name: bd-legal-rag-prod
+
 x-app-env: &app-env
   BDRAG_ENVIRONMENT: production
   BDRAG_DATABASE_DSN: postgresql+asyncpg://bdrag:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/bdrag
