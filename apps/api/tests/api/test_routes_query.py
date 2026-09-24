@@ -25,6 +25,7 @@ def _make_retrieval(query: str = "What is section 103?") -> RetrievalResult:
         language="en",
         score=0.9,
         rerank_score=0.9,
+        source_url="https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
     )
     return RetrievalResult(
         query=query,

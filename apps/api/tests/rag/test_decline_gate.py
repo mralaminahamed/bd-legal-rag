@@ -23,6 +23,7 @@ def _chunk(score: float = 0.9) -> RetrievedChunk:
         language="en",
         score=score,
         rerank_score=score,
+        source_url="https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
     )
 
 

@@ -20,6 +20,7 @@ def _make_chunk(chunk_id: str, content: str, language: str = "en") -> object:
         language=language,
         score=0.9,
         rerank_score=0.85,
+        source_url="https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
     )
 
 

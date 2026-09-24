@@ -29,6 +29,7 @@ def _chunk(
         language="en",
         score=score,
         rerank_score=rerank_score,
+        source_url="https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
     )
 
 
@@ -182,6 +183,7 @@ async def test_retrieve_cross_lingual_fallback_engaged() -> None:
         language="en",
         score=0.05,  # below default cross_lingual_floor=0.20
         rerank_score=None,
+        source_url="https://bdlaws.minlaw.gov.bd/act-1/section-1.html",
     )
 
     call_count = 0
