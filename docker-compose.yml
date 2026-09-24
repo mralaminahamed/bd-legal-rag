@@ -6,6 +6,12 @@
 # dependencies beyond Docker (NFR-PT-1). The app, worker, and beat share one
 # image and one configuration surface; behaviour differs only by command.
 
+# Pinned so the project name does not follow the directory. Without it
+# Compose derives it from the folder, and moving or renaming this checkout
+# makes Docker look for volumes that do not exist: it creates empty ones
+# and the data that was there is orphaned rather than lost loudly.
+name: bd-legal-rag
+
 x-app-env: &app-env
   BDRAG_ENVIRONMENT: development
   BDRAG_DATABASE_DSN: postgresql+asyncpg://bdrag:bdrag@postgres:5432/bdrag
