@@ -21,9 +21,15 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-from app.db.models import EMBED_DIMENSIONS, HNSW_OPS
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects import postgresql
+
+# The schema as first written. These are not read from app.db.models: the models
+# describe the schema as it is now (halfvec, 2560), and f7bdf0070aad is the
+# migration that changes it, so importing them here builds the wrong column on an
+# empty database and then fails on the index.
+_EMBED_DIMENSIONS = 1024
+_HNSW_OPS = "vector_cosine_ops"
 
 revision: str = "0001"
 down_revision: str | None = None
@@ -149,7 +155,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("token_count", sa.Integer(), nullable=False),
-        sa.Column("embedding", Vector(EMBED_DIMENSIONS), nullable=False),
+        sa.Column("embedding", Vector(_EMBED_DIMENSIONS), nullable=False),
         sa.Column(
             "metadata",
             postgresql.JSONB(),
@@ -176,7 +182,7 @@ def upgrade() -> None:
         ["embedding"],
         postgresql_using="hnsw",
         postgresql_with={"m": 16, "ef_construction": 64},
-        postgresql_ops={"embedding": HNSW_OPS},
+        postgresql_ops={"embedding": _HNSW_OPS},
     )
     op.create_index("chunks_content_tsv_gin", "chunks", ["content_tsv"], postgresql_using="gin")
     op.create_index("chunks_act_language", "chunks", ["act_id", "language"])
